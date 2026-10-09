@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import type { Recipe } from '../domain/schema';
 import { createRecipeStore } from '../store/recipeStore';
+import { useUser } from '../store/userStore';
 import { feedMirrors } from '../sync/config';
 
 export const WIDE_QUERY = '(min-width: 820px)';
@@ -71,6 +72,18 @@ export function isTyping(event: KeyboardEvent): boolean {
 
 const imageStore = createRecipeStore();
 const objectUrls = new Map<string, string>();
+
+/** True when the app is showing its dark theme, by choice or by following the system. */
+export function useDark(): boolean {
+  const choice = useUser((s) => s.settings.theme);
+  const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
+  return choice === 'dark' || (choice === 'system' && systemDark);
+}
+
+/** Object URL for any image in the feed (theme art), fetched once and kept for offline use. */
+export function useFeedImage(path: string | null): string | null {
+  return useRecipeImage({ id: `feed:${path ?? ''}`, image: path ?? undefined });
+}
 
 /** Object URL for a recipe's photo, fetched once and kept for offline use. */
 export function useRecipeImage(recipe: Pick<Recipe, 'id' | 'image'>): string | null {

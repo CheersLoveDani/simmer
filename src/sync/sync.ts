@@ -3,6 +3,7 @@ import {
   bundleSchema,
   manifestSchema,
   parseRecipe,
+  parseThemes,
   type Manifest,
   type Recipe,
 } from '../domain/schema';
@@ -116,7 +117,7 @@ export async function syncRecipes(deps: SyncDeps): Promise<SyncResult> {
 
     // With recipes skipped the revision is left alone, so a later build that
     // can read them will pick them up instead of believing it is up to date.
-    await store.apply({ put, remove: removed, revision: skipped.length === 0 ? manifest.revision : null });
+    await store.apply({ put, remove: removed, revision: skipped.length === 0 ? manifest.revision : null, themes: parseThemes(manifest.themes) });
 
     const added = put.filter((r) => !local.has(r.id)).map((r) => r.id);
     const updated = put.filter((r) => local.has(r.id)).map((r) => r.id);
@@ -130,13 +131,13 @@ export async function syncRecipes(deps: SyncDeps): Promise<SyncResult> {
 /** Load the snapshot shipped with the app when the store has never been filled. */
 export async function seedIfEmpty(
   store: RecipeStore,
-  loadSeed: () => Promise<{ revision: string; recipes: unknown[] }>,
+  loadSeed: () => Promise<{ revision: string; recipes: unknown[]; themes?: unknown }>,
 ): Promise<boolean> {
   if ((await store.hashes()).size > 0) return false;
   const seed = await loadSeed();
   const put = seed.recipes.map(parseRecipe).filter((r): r is Recipe => r !== null);
   if (put.length === 0) return false;
-  await store.apply({ put, remove: [], revision: put.length === seed.recipes.length ? seed.revision : null });
+  await store.apply({ put, remove: [], revision: put.length === seed.recipes.length ? seed.revision : null, themes: parseThemes(seed.themes) });
   return true;
 }
 

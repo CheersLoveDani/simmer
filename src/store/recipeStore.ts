@@ -1,4 +1,4 @@
-import type { Recipe } from '../domain/schema';
+import { parseThemes, type Recipe, type Theme } from '../domain/schema';
 import { openDatabase } from './db';
 
 export interface RecipeChange {
@@ -6,12 +6,15 @@ export interface RecipeChange {
   remove: string[];
   /** New feed revision, or null to leave the stored one as it is. */
   revision: string | null;
+  /** The full set of themes, replacing what is stored; omitted to leave them alone. */
+  themes?: Theme[];
 }
 
 export interface RecipeStore {
   all(): Promise<Recipe[]>;
   revision(): Promise<string | null>;
   hashes(): Promise<Map<string, string>>;
+  themes(): Promise<Theme[]>;
   /** All-or-nothing: either every change lands or none does. */
   apply(change: RecipeChange): Promise<void>;
   image(id: string, hash: string): Promise<Blob | null>;
@@ -19,6 +22,7 @@ export interface RecipeStore {
 }
 
 const REVISION_KEY = 'feed.revision';
+const THEMES_KEY = 'feed.themes';
 
 export function createRecipeStore(dbName?: string): RecipeStore {
   return {
@@ -32,7 +36,10 @@ export function createRecipeStore(dbName?: string): RecipeStore {
       const recipes = await (await openDatabase(dbName)).getAll('recipes');
       return new Map(recipes.map((r) => [r.id, r.hash]));
     },
-    async apply({ put, remove, revision }) {
+    async themes() {
+      return parseThemes(await (await openDatabase(dbName)).get('kv', THEMES_KEY));
+    },
+    async apply({ put, remove, revision, themes }) {
       const db = await openDatabase(dbName);
       const tx = db.transaction(['recipes', 'kv', 'images'], 'readwrite');
       const recipes = tx.objectStore('recipes');
@@ -42,6 +49,7 @@ export function createRecipeStore(dbName?: string): RecipeStore {
         void tx.objectStore('images').delete(id);
       }
       if (revision != null) void tx.objectStore('kv').put(revision, REVISION_KEY);
+      if (themes) void tx.objectStore('kv').put(themes, THEMES_KEY);
       await tx.done;
     },
     async image(id, hash) {

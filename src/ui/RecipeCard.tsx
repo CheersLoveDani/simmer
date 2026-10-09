@@ -7,6 +7,7 @@ import { useUser } from '../store/userStore';
 import { Cover } from './Cover';
 import { Icon } from './Icon';
 import { useRecipeImage } from './hooks';
+import { ThemeBadge, useRecipeLook } from './Themed';
 
 /** A recipe's photo when it has one, otherwise its generated cover. */
 export function RecipeArt({ recipe, className = '', shared = false }: { recipe: Recipe; className?: string; shared?: boolean }) {
@@ -36,9 +37,10 @@ interface CardProps {
 export function RecipeCard({ recipe, terms, children, size = 'regular' }: CardProps) {
   const href = `/recipe/${recipe.id}`;
   const travelling = useViewTransitionState(href);
+  const { look, style } = useRecipeLook(recipe);
   const favourite = useUser((s) => s.favourites.includes(recipe.id));
   return (
-    <Link to={href} viewTransition className={`card card-${size}`} data-testid="recipe-card">
+    <Link to={href} viewTransition className={`card card-${size} ${look ? 'is-themed' : ''}`} style={style} data-testid="recipe-card">
       <div className="card-cover">
         <RecipeArt recipe={recipe} shared={travelling} />
         {favourite && (
@@ -55,6 +57,7 @@ export function RecipeCard({ recipe, terms, children, size = 'regular' }: CardPr
         <span className="dot" aria-hidden="true" />
         <span>{label(recipe.difficulty)}</span>
       </p>
+      <ThemeBadge look={look} compact />
       {children}
     </Link>
   );

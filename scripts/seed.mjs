@@ -29,6 +29,6 @@ const manifest = await read('manifest.json');
 const bundle = await read(manifest.bundle.path);
 
 await mkdir(out, { recursive: true });
-await writeFile(path.join(out, 'manifest.json'), `${JSON.stringify({ revision: manifest.revision, generatedAt: manifest.generatedAt })}\n`);
+await writeFile(path.join(out, 'manifest.json'), `${JSON.stringify({ revision: manifest.revision, generatedAt: manifest.generatedAt, themes: manifest.themes ?? [] })}\n`);
 await writeFile(path.join(out, 'bundle.json'), `${JSON.stringify(bundle)}\n`);
 console.log(`Seeded ${bundle.recipes.length} recipes at revision ${manifest.revision}`);

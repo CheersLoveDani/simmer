@@ -8,7 +8,7 @@ const A = 'https://a.test/v1/';
 const B = 'https://b.test/v1/';
 
 /** An in-memory feed; `down` lists URL fragments that should fail. */
-function feed(recipes: unknown[], options: { schemaVersion?: number; revision?: string } = {}) {
+function feed(recipes: unknown[], options: { schemaVersion?: number; revision?: string; themes?: unknown[] } = {}) {
   const entries = (recipes as Recipe[]).map((r) => ({ id: r.id, hash: r.hash, path: `r/${r.id}.${r.hash}.json` }));
   const manifest: Manifest = {
     schemaVersion: options.schemaVersion ?? 1,
@@ -17,6 +17,7 @@ function feed(recipes: unknown[], options: { schemaVersion?: number; revision?: 
     bundle: { path: 'recipes.bundle.json', hash: 'b', bytes: 1 },
     recipes: entries,
     images: [],
+    themes: options.themes ?? [],
   };
   const files = new Map<string, unknown>([
     ['manifest.json', manifest],
@@ -200,6 +201,28 @@ describe('seedIfEmpty', () => {
     await seedIfEmpty(store, async () => ({ revision: 'seed', recipes: [pasta, { nope: true }] }));
     expect(await ids()).toEqual([pasta.id]);
     expect(await store.revision()).toBeNull();
+  });
+});
+
+describe('themes', () => {
+  const arcade = { id: 'arcade', name: 'Arcade Nights', accent: '#f79a1e', styles: {} };
+
+  it('arrive with a sync and are replaced by the next one', async () => {
+    await run(feed([pasta], { revision: 'r1', themes: [arcade, { id: 'broken' }] }));
+    expect((await store.themes()).map((t) => t.id)).toEqual(['arcade']);
+
+    // Only the theme changed: no recipe is fetched, but the new look is stored.
+    const second = await run(feed([pasta], { revision: 'r2', themes: [{ ...arcade, accent: '#112233' }] }));
+    expect(second.status).toBe('up-to-date');
+    expect((await store.themes())[0]!.accent).toBe('#112233');
+
+    await run(feed([pasta], { revision: 'r3' }));
+    expect(await store.themes()).toEqual([]);
+  });
+
+  it('come with the bundled snapshot', async () => {
+    await seedIfEmpty(store, async () => ({ revision: 'seed', recipes: [pasta], themes: [arcade] }));
+    expect((await store.themes()).map((t) => t.name)).toEqual(['Arcade Nights']);
   });
 });
 

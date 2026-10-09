@@ -13,7 +13,7 @@ export const PASTA = 'Brown Butter Miso Pasta';
 
 export interface Feed {
   /** Replace what the feed serves; the app sees it on its next sync. */
-  publish(recipes: FeedRecipe[], revision: string): void;
+  publish(recipes: FeedRecipe[], revision: string, themes?: unknown[]): void;
   goOffline(): void;
   goOnline(): void;
   requests: string[];
@@ -22,10 +22,15 @@ export interface Feed {
 /** A 1x1 WebP, standing in for any recipe photo. */
 const PIXEL = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');
 
+/** Stands in for any theme artwork. */
+const THEME_ART =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="none" stroke="#f79a1e" stroke-width="14"><circle cx="100" cy="100" r="80"/><path d="M40 150 100 60l60 90"/></g></svg>';
+
 /** Stand in for the recipe feed so tests never touch the network. */
 async function mockFeed(page: Page): Promise<Feed> {
   let recipes = seedRecipes;
   let revision = seedManifest.revision;
+  let themes: unknown[] = [];
   let offline = false;
   const requests: string[] = [];
 
@@ -37,9 +42,12 @@ async function mockFeed(page: Page): Promise<Feed> {
     const entries = recipes.map((r) => ({ id: r.id, hash: r.hash, path: `r/${r.id}.${r.hash}.json` }));
     const json = (body: unknown) => route.fulfill({ json: body, headers: { 'access-control-allow-origin': '*' } });
     if (file === 'manifest.json') {
-      return json({ schemaVersion: 1, revision, generatedAt: '2026-10-09T00:00:00Z', bundle: { path: 'bundle.json', hash: 'x', bytes: 1 }, recipes: entries, images: [] });
+      return json({ schemaVersion: 1, revision, generatedAt: '2026-10-09T00:00:00Z', bundle: { path: 'bundle.json', hash: 'x', bytes: 1 }, recipes: entries, images: [], themes });
     }
     if (file === 'bundle.json') return json({ schemaVersion: 1, recipes });
+    if (file.startsWith('img/t/')) {
+      return route.fulfill({ body: THEME_ART, contentType: 'image/svg+xml', headers: { 'access-control-allow-origin': '*' } });
+    }
     if (file.startsWith('img/')) {
       return route.fulfill({ body: PIXEL, contentType: 'image/webp', headers: { 'access-control-allow-origin': '*' } });
     }
@@ -48,9 +56,10 @@ async function mockFeed(page: Page): Promise<Feed> {
   });
 
   return {
-    publish(next, nextRevision) {
+    publish(next, nextRevision, nextThemes = []) {
       recipes = next;
       revision = nextRevision;
+      themes = nextThemes;
     },
     goOffline: () => void (offline = true),
     goOnline: () => void (offline = false),

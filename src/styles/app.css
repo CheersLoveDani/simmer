@@ -2234,3 +2234,67 @@ kbd {
 .rail-brand img {
   border-radius: 22%;
 }
+
+/* ---- Themes -------------------------------------------------------------- */
+
+/* A themed recipe recolours the accent for everything inside it. */
+.is-themed {
+  --flame: var(--theme-accent);
+  --flame-ink: var(--theme-ink);
+  --flame-wash: color-mix(in srgb, var(--theme-accent) 14%, var(--surface));
+}
+
+.recipe.is-themed,
+.cook.is-themed {
+  isolation: isolate;
+}
+
+/* The theme's artwork sits in a corner behind the text, faint enough to read over. */
+.theme-art {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  width: min(48vw, 600px);
+  aspect-ratio: 1;
+  background: right bottom / contain no-repeat;
+  opacity: 0.16;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top left, #000 35%, transparent 82%);
+  mask-image: linear-gradient(to top left, #000 35%, transparent 82%);
+}
+.shell.is-narrow .theme-art {
+  bottom: calc(var(--tabbar) + var(--safe-bottom));
+  width: 78vw;
+  opacity: 0.12;
+}
+:root[data-theme='dark'] .theme-art {
+  opacity: 0.2;
+}
+
+.theme-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-small);
+  font-weight: 650;
+}
+.theme-badge.is-compact {
+  gap: 6px;
+  font-weight: 600;
+}
+.theme-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.theme-style {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.theme-style::before {
+  content: '/';
+  margin-right: 8px;
+  opacity: 0.5;
+}

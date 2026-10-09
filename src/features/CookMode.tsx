@@ -11,6 +11,7 @@ import { useSession } from '../store/sessionStore';
 import { useUser } from '../store/userStore';
 import { isTyping, toast, useKey } from '../ui/hooks';
 import { Button, IconButton } from '../ui/primitives';
+import { ThemeArt, useRecipeLook } from '../ui/Themed';
 import { StepTimer } from './timers';
 
 export function CookMode() {
@@ -24,6 +25,7 @@ export function CookMode() {
 }
 
 function Cooking({ recipe }: { recipe: Recipe }) {
+  const { look, style: themeStyle } = useRecipeLook(recipe);
   const navigate = useNavigate();
   const units = useUser((s) => s.settings.units);
   const keepAwake = useUser((s) => s.settings.keepAwake);
@@ -75,7 +77,8 @@ function Cooking({ recipe }: { recipe: Recipe }) {
   });
 
   return (
-    <div className="cook" data-testid="cook-mode">
+    <div className={`cook ${look ? 'is-themed' : ''}`} style={themeStyle} data-testid="cook-mode">
+      <ThemeArt look={look} />
       <header className="cook-head">
         <IconButton icon="close" label="Leave cook mode" onClick={exit} />
         <div className="cook-title">

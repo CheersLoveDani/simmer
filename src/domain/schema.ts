@@ -66,6 +66,36 @@ const webUrl = z.string().refine((value) => {
   }
 }, 'must be an https link');
 
+const hexColour = z.string().regex(/^#[0-9a-f]{6}$/i);
+/** Theme art is only ever loaded from the feed's own theme folder. */
+const themeArt = z.string().regex(/^img\/t\/[a-z0-9-]+\/[A-Za-z0-9._-]+\.(webp|png|svg)$/);
+const themeLook = {
+  accentDark: hexColour.optional().catch(undefined),
+  art: themeArt.optional().catch(undefined),
+};
+
+/** A shared look for a group of recipes, such as those from one cookbook. */
+export const themeSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  credit: z.string().optional(),
+  accent: hexColour,
+  ...themeLook,
+  /** Variations a recipe can pick, e.g. one per character. */
+  styles: z.record(z.string(), z.object({ label: z.string().min(1), accent: hexColour.optional().catch(undefined), ...themeLook })).default({}),
+});
+export type Theme = z.infer<typeof themeSchema>;
+
+/** Themes are read one by one so a malformed one is skipped, not fatal. */
+export function parseThemes(raw: unknown): Theme[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    const parsed = themeSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export const recipeSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
   hash: z.string().min(1),
@@ -103,6 +133,11 @@ export const recipeSchema = z.object({
     .optional(),
   cover: z.object({ hue: z.number().min(0).max(360), motif: z.string() }),
   image: z.string().optional(),
+  /** The look this recipe borrows: a theme, and optionally one of its styles. */
+  theme: z
+    .object({ id: z.string(), style: z.string().optional() })
+    .optional()
+    .catch(undefined),
   /** Who made the photo and its licence; shown wherever the photo is the subject. */
   imageCredit: z
     .object({ author: z.string(), license: z.string(), licenseUrl: webUrl.optional().catch(undefined), source: webUrl })
@@ -127,6 +162,7 @@ export const manifestSchema = z.object({
   bundle: z.object({ path: z.string(), hash: z.string(), bytes: z.number() }),
   recipes: z.array(fileRef),
   images: z.array(fileRef).default([]),
+  themes: z.array(z.unknown()).default([]),
 });
 export type Manifest = z.infer<typeof manifestSchema>;
 

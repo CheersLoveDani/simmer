@@ -39,21 +39,22 @@ function tokenize(text: string): string[] {
   return fold(text).split(TOKEN).filter(Boolean);
 }
 
-function toDoc(recipe: Recipe): Doc {
+function toDoc(recipe: Recipe, extra: string): Doc {
   const items = allIngredients(recipe);
   return {
     id: recipe.id,
     title: recipe.title,
     // Both the written name and the canonical key: "scallions" and "spring onion".
     ingredients: [...new Set(items.flatMap((i) => [i.item, i.key]))].join(' | '),
-    tags: [...recipe.tags, ...recipe.diet].join(' '),
+    tags: [...recipe.tags, ...recipe.diet, extra].join(' '),
     cuisine: recipe.cuisine,
     course: recipe.course,
     description: recipe.description,
   };
 }
 
-export function createSearchIndex(recipes: Recipe[]): SearchIndex {
+/** `extraWords` adds searchable words that are not on the recipe itself, such as its theme. */
+export function createSearchIndex(recipes: Recipe[], extraWords: (recipe: Recipe) => string = () => ''): SearchIndex {
   const byId = new Map(recipes.map((r) => [r.id, r]));
   const mini = new MiniSearch<Doc>({
     fields: ['title', 'ingredients', 'tags', 'cuisine', 'course', 'description'],
@@ -67,7 +68,7 @@ export function createSearchIndex(recipes: Recipe[]): SearchIndex {
       combineWith: 'AND',
     },
   });
-  mini.addAll(recipes.map(toDoc));
+  mini.addAll(recipes.map((recipe) => toDoc(recipe, extraWords(recipe))));
 
   return {
     search(query, limit = 50) {

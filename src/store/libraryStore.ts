@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Recipe } from '../domain/schema';
+import type { Recipe, Theme } from '../domain/schema';
 import { createSearchIndex, type SearchIndex } from '../domain/search';
+import { themeSearchText } from '../domain/theme';
 import { describeSync, seedIfEmpty, syncRecipes, type SyncResult } from '../sync/sync';
 import { feedMirrors } from '../sync/config';
 import { kvGet, kvSet } from './db';
@@ -15,6 +16,7 @@ interface LibraryState {
   status: 'loading' | 'ready';
   recipes: Recipe[];
   byId: Map<string, Recipe>;
+  themes: Map<string, Theme>;
   index: SearchIndex;
   syncState: SyncState;
   lastSyncedAt: number | null;
@@ -28,21 +30,27 @@ interface LibraryState {
 
 const store = createRecipeStore();
 
-function view(recipes: Recipe[]) {
+function view(recipes: Recipe[], themeList: Theme[]) {
   const sorted = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
-  return { recipes: sorted, byId: new Map(sorted.map((r) => [r.id, r])), index: createSearchIndex(sorted) };
+  const themes = new Map(themeList.map((t) => [t.id, t]));
+  return {
+    recipes: sorted,
+    byId: new Map(sorted.map((r) => [r.id, r])),
+    themes,
+    index: createSearchIndex(sorted, (recipe) => themeSearchText(recipe, themes)),
+  };
 }
 
 async function loadSeed() {
   const [manifest, bundle] = await Promise.all([import('@seed/manifest.json'), import('@seed/bundle.json')]);
-  return { revision: manifest.default.revision, recipes: bundle.default.recipes as unknown[] };
+  return { revision: manifest.default.revision, recipes: bundle.default.recipes as unknown[], themes: (manifest.default as { themes?: unknown }).themes };
 }
 
 let syncing: Promise<SyncResult> | null = null;
 
 export const useLibrary = create<LibraryState>()((set, get) => ({
   status: 'loading',
-  ...view([]),
+  ...view([], []),
   syncState: 'idle',
   lastSyncedAt: null,
   lastResult: null,
@@ -55,8 +63,8 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     } catch {
       // A missing or unreadable snapshot only matters offline on first run.
     }
-    const [recipes, lastSyncedAt] = await Promise.all([store.all(), kvGet<number>(LAST_SYNC_KEY)]);
-    set({ status: 'ready', ...view(recipes), lastSyncedAt: lastSyncedAt ?? null });
+    const [recipes, themes, lastSyncedAt] = await Promise.all([store.all(), store.themes(), kvGet<number>(LAST_SYNC_KEY)]);
+    set({ status: 'ready', ...view(recipes, themes), lastSyncedAt: lastSyncedAt ?? null });
     void get().sync();
   },
 
@@ -73,9 +81,11 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
         patch.lastSyncedAt = Date.now();
         await kvSet(LAST_SYNC_KEY, patch.lastSyncedAt);
       }
-      if (result.status === 'updated') {
-        Object.assign(patch, view(await store.all()));
-        patch.notice = describeSync(result);
+      if (result.status === 'updated') patch.notice = describeSync(result);
+      // A theme can be restyled without any recipe changing.
+      const themes = result.status === 'failed' ? null : await store.themes();
+      if (result.status === 'updated' || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
+        Object.assign(patch, view(await store.all(), themes ?? []));
       }
       set(patch);
       return result;

@@ -14,6 +14,7 @@ import { Icon } from '../ui/Icon';
 import { CardRow, RecipeArt, RecipeCard } from '../ui/RecipeCard';
 import { goBack } from '../ui/back';
 import { toast, useWide } from '../ui/hooks';
+import { ThemeArt, ThemeBadge, useRecipeLook } from '../ui/Themed';
 import { Button, Chip, Empty, IconButton, Segmented, Sheet, Stars, Stepper } from '../ui/primitives';
 import { StepTimer } from './timers';
 
@@ -40,6 +41,7 @@ export function Recipe() {
 }
 
 function RecipeView({ recipe }: { recipe: RecipeType }) {
+  const { look, style: themeStyle } = useRecipeLook(recipe);
   const navigate = useNavigate();
   const wide = useWide();
   const all = useLibrary((s) => s.recipes);
@@ -81,7 +83,8 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
   ].filter((t) => t.minutes > 0);
 
   return (
-    <article className="page recipe" data-testid="recipe-page">
+    <article className={`page recipe ${look ? 'is-themed' : ''}`} style={themeStyle} data-testid="recipe-page">
+      <ThemeArt look={look} />
       <div className="recipe-top no-print">
         {/* On wide screens the rail carries the back button. */}
         {wide ? <span /> : <IconButton icon="back" label="Back" onClick={() => (goBack() ? undefined : navigate('/'))} />}
@@ -174,6 +177,7 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
 
         <div className="recipe-main">
           <header className="recipe-head">
+            <ThemeBadge look={look} />
             <h1>{recipe.title}</h1>
             <p className="recipe-desc">{recipe.description}</p>
             <dl className="facts">
