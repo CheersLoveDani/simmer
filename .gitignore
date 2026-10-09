@@ -1,0 +1,16 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.local
+.DS_Store
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Signing material never belongs in the repo
+*.jks
+*.keystore
+keystore.properties
+*.key
