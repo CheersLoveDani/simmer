@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="100%" height="100%">
+  <defs>
+    <!-- Vibrant thermal gradient for the app icon -->
+    <linearGradient id="simmerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF512F" />
+      <stop offset="100%" stop-color="#F09819" />
+    </linearGradient>
+
+    <!-- Soft drop shadow to give the icon depth -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#FF512F" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- App Icon Background -->
+  <circle cx="85" cy="80" r="56" fill="url(#simmerGrad)" filter="url(#shadow)" />
+
+  <!-- Minimalist Cooking Pot / Bowl -->
+  <path d="M 50 85 C 50 110 60 115 85 115 C 110 115 120 110 120 85 Z" fill="#FFFFFF" />
+  
+  <!-- Pot Rim -->
+  <path d="M 44 85 L 126 85" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" />
+
+  <!-- Steam Lines (S-curves to represent both steam and the letter 'S') -->
+  <!-- Center steam (taller, dominant wave) -->
+  <path d="M 85 73 C 70 60 100 50 85 33" stroke="#FFFFFF" stroke-width="6" fill="none" stroke-linecap="round" />
+  
+  <!-- Left steam -->
+  <path d="M 61 73 C 53 63 69 53 61 43" stroke="#FFFFFF" stroke-width="4.5" fill="none" stroke-linecap="round" opacity="0.85" />
+  
+  <!-- Right steam -->
+  <path d="M 109 73 C 117 63 101 53 109 43" stroke="#FFFFFF" stroke-width="4.5" fill="none" stroke-linecap="round" opacity="0.85" />
+
+  <!-- Text Logo with integrated punctuation accent -->
+  <text x="170" y="106" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="800" fill="#2d3436" letter-spacing="-2.5">
+    simmer<tspan fill="#FF512F">.</tspan>
+  </text>
+</svg>

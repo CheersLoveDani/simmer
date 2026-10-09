@@ -1,3 +1,5 @@
+<p><img src="docs/brand/simmer-logo.svg" alt="simmer." width="360"></p>
+
 # Simmer
 
 An open-source cookbook for desktop and Android. Search forgivingly, cook step

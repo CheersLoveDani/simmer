@@ -1,21 +1,21 @@
-/* Enamelware: porcelain white, a navy rim, a low gas-flame blue. */
+/* Porcelain white, charcoal ink and the heat of the hob: flame red-orange into ember amber. */
 :root {
   --porcelain: #f4f6f6;
   --surface: #ffffff;
   --surface-sunk: #e9edee;
-  --ink: #17233a;
-  --ink-soft: #55607a;
+  --ink: #2d3436;
+  --ink-soft: #636e72;
   --line: #dbe1e5;
-  --flame: #3552d8;
+  --flame: #d8401a;
   --flame-ink: #ffffff;
-  --flame-wash: #e7ebfb;
+  --flame-wash: #fdebe4;
   --ember: #c97a12;
   --ember-wash: #fbf0dc;
   --danger: #b3261e;
   --plate: #fbfcfb;
-  --plate-rim: #17233a;
+  --plate-rim: #2d3436;
   --plate-well: #dde3e6;
-  --scrim: rgb(23 35 58 / 0.42);
+  --scrim: rgb(45 52 54 / 0.42);
 
   --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
   --font-ui: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -58,9 +58,9 @@
   --ink: #e8edf3;
   --ink-soft: #97a3b4;
   --line: #27313e;
-  --flame: #9aadff;
+  --flame: #ff8a65;
   --flame-ink: #0f141b;
-  --flame-wash: #1c2540;
+  --flame-wash: #3a2018;
   --ember: #f0b45a;
   --ember-wash: #2b2314;
   --danger: #ff8a80;
@@ -86,9 +86,9 @@
     --ink: #e8edf3;
     --ink-soft: #97a3b4;
     --line: #27313e;
-    --flame: #9aadff;
+    --flame: #ff8a65;
     --flame-ink: #0f141b;
-    --flame-wash: #1c2540;
+    --flame-wash: #3a2018;
     --ember: #f0b45a;
     --ember-wash: #2b2314;
     --danger: #ff8a80;

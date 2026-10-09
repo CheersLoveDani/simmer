@@ -32,6 +32,17 @@
   padding-top: var(--safe-top);
 }
 
+/* The app draws behind the phone's status bar; keep scrolled content from
+   showing through the clock and icons. */
+.shell::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--safe-top);
+  background: var(--porcelain);
+  z-index: 19;
+}
+
 .content {
   min-width: 0;
 }
@@ -2204,4 +2215,22 @@ kbd {
 .splash p {
   color: var(--ink-soft);
   font-size: var(--t-body);
+}
+
+.wordmark {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+.wordmark i {
+  font-style: normal;
+  color: #ff512f;
+}
+.splash img {
+  border-radius: 22%;
+}
+.rail-brand img {
+  border-radius: 22%;
 }

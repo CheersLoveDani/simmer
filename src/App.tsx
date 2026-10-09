@@ -73,7 +73,17 @@ function useAutoSync() {
   }, []);
 }
 
+/** The name as it appears in the logo. */
+function Wordmark() {
+  return (
+    <span className="wordmark" aria-hidden="true">
+      simmer<i>.</i>
+    </span>
+  );
+}
+
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const UPDATE_RETRY_INTERVAL_MS = 2 * 60 * 1000;
 
 /** An update must never restart the app under someone who is cooking. */
 function quietMoment(): boolean {
@@ -105,9 +115,15 @@ function useAppUpdates(): string | null {
     };
     check();
     const interval = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    // A download that dropped, or a launch without a connection, is tried again
+    // rather than left until the next start.
+    const retry = setInterval(() => appUpdater.getState().status === 'failed' && check(), UPDATE_RETRY_INTERVAL_MS);
+    window.addEventListener('online', check);
     return () => {
       stop();
       clearInterval(interval);
+      clearInterval(retry);
+      window.removeEventListener('online', check);
     };
   }, []);
 
@@ -135,6 +151,7 @@ function Root() {
     return (
       <div className="splash" role="status">
         <img src="/icon.svg" alt="" width="72" height="72" />
+        <Wordmark />
         <p>Updating to Simmer {updating}…</p>
       </div>
     );
@@ -254,6 +271,7 @@ export function App() {
     return (
       <div className="splash" role="status" aria-label="Loading Simmer">
         <img src="/icon.svg" alt="" width="72" height="72" />
+        <Wordmark />
       </div>
     );
   }
