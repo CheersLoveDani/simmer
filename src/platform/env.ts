@@ -3,6 +3,10 @@ interface SimmerNative {
   setKeepAwake(on: boolean): void;
   share(title: string, text: string): void;
   setDarkChrome?(dark: boolean): void;
+  /** Fetch a release APK; `window.__simmerUpdate(ok)` is called when done. */
+  downloadUpdate?(url: string): void;
+  /** Hand the downloaded APK to the system installer. */
+  installUpdate?(): void;
   insets?(): string;
 }
 

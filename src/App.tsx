@@ -12,9 +12,10 @@ import { Settings } from './features/Settings';
 import { Shopping } from './features/Shopping';
 import { TimerDock, useTimerEngine, useTimerSheet } from './features/timers';
 import { applyNativeTheme } from './platform/device';
-import { openExternal, REPO_URL } from './platform/env';
-import { checkForAppUpdate } from './platform/updater';
+import { isAndroid } from './platform/env';
+import { appUpdater, type UpdateState } from './platform/updater';
 import { SYNC_INTERVAL_MS, useLibrary } from './store/libraryStore';
+import { useTimers } from './store/timerStore';
 import { useUser } from './store/userStore';
 import { Icon, type IconName } from './ui/Icon';
 import { canGoBackInHistory, goBack, installBackNavigation } from './ui/back';
@@ -72,6 +73,48 @@ function useAutoSync() {
   }, []);
 }
 
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/** An update must never restart the app under someone who is cooking. */
+function quietMoment(): boolean {
+  const cooking = window.location.hash.endsWith('/cook');
+  const timing = useTimers.getState().timers.some((timer) => timer.status !== 'done');
+  return !cooking && !timing;
+}
+
+/**
+ * Keep the app itself up to date: look for a new version at launch and every
+ * few hours. Returns the version being installed while the app is about to
+ * restart, so the screen can say so.
+ */
+function useAppUpdates(): string | null {
+  const [state, setState] = useState<UpdateState>(appUpdater.getState());
+
+  useEffect(() => {
+    const stop = appUpdater.subscribe((next) => {
+      setState(next);
+      if (next.status !== 'ready' || !next.version) return;
+      toast(`Simmer ${next.version} is ready`, { label: isAndroid ? 'Install' : 'Restart to update', run: () => void appUpdater.install() });
+    });
+    const check = () => {
+      const { autoUpdate } = useUser.getState().settings;
+      void appUpdater.check({ auto: autoUpdate, mayRestart: quietMoment }).then(() => {
+        const { status, version } = appUpdater.getState();
+        if (status === 'available' && version) toast(`Simmer ${version} is available`, { label: 'Update', run: () => void appUpdater.install() });
+      });
+    };
+    check();
+    const interval = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+    return () => {
+      stop();
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Android's installer is a separate screen; only desktop restarts in place.
+  return state.status === 'installing' && !isAndroid ? state.version : null;
+}
+
 function Root() {
   const reduceMotion = useAppearance();
   const notice = useLibrary((s) => s.notice);
@@ -86,15 +129,16 @@ function Root() {
     dismissNotice();
   }, [notice, dismissNotice]);
 
-  useEffect(() => {
-    void checkForAppUpdate().then((update) => {
-      if (!update) return;
-      toast(`Simmer ${update.version} is available`, {
-        label: update.install ? 'Install and restart' : 'Get it',
-        run: () => void (update.install ? update.install() : openExternal(update.url ?? REPO_URL)),
-      });
-    });
-  }, []);
+  const updating = useAppUpdates();
+
+  if (updating) {
+    return (
+      <div className="splash" role="status">
+        <img src="/icon.svg" alt="" width="72" height="72" />
+        <p>Updating to Simmer {updating}…</p>
+      </div>
+    );
+  }
 
   return (
     <MotionConfig reducedMotion={reduceMotion ? 'always' : 'user'}>

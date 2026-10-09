@@ -9,6 +9,7 @@ export const settingsSchema = z.object({
   reduceMotion: z.boolean().catch(false),
   keepAwake: z.boolean().catch(true),
   timerSound: z.boolean().catch(true),
+  autoUpdate: z.boolean().catch(true),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -19,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   keepAwake: true,
   timerSound: true,
+  autoUpdate: true,
 };
 
 const shoppingItemSchema = z.object({

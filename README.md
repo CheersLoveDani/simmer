@@ -29,8 +29,11 @@ by step, plan the week, and let the recipe library keep itself up to date.
 - **Yours.** Favourites, collections, ratings, private notes and a cooking log,
   all stored on your device. Back up and restore as a file.
 - **Always current.** New and corrected recipes arrive on their own from the
-  [recipe library](https://github.com/CheersLoveDani/simmer-recipes). Desktop
-  builds update themselves too.
+  [recipe library](https://github.com/CheersLoveDani/simmer-recipes). The app
+  updates itself from GitHub Releases: desktop builds download and install a
+  new version when they start (never while a timer is running or you are in
+  cook mode), and the Android app downloads the new APK and hands it to the
+  system installer. Turn this off under Settings, About.
 - **Two layouts.** A navigation rail and two-column recipes on wide screens;
   bottom tabs and sheets on phones. Light and dark themes.
 

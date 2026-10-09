@@ -2196,3 +2196,12 @@ kbd {
   opacity: 0.35;
   cursor: default;
 }
+
+.splash {
+  align-content: center;
+  gap: 18px;
+}
+.splash p {
+  color: var(--ink-soft);
+  font-size: var(--t-body);
+}

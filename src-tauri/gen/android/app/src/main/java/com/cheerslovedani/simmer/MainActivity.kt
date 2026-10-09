@@ -5,11 +5,17 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+
+private const val RELEASE_DOWNLOADS = "https://github.com/CheersLoveDani/simmer/releases/download/"
 
 class MainActivity : TauriActivity() {
   private var webView: WebView? = null
@@ -56,6 +62,8 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  private fun updateFile() = File(cacheDir, "update.apk")
+
   private fun pushInsets() {
     webView?.evaluateJavascript(
       "window.__simmerInsets && window.__simmerInsets($insetTop, $insetBottom)",
@@ -91,6 +99,46 @@ class MainActivity : TauriActivity() {
         putExtra(Intent.EXTRA_TEXT, text)
       }
       runOnUiThread { startActivity(Intent.createChooser(send, title)) }
+    }
+
+    /**
+     * Fetch a new version of the app from this project's releases. The page is
+     * told through `window.__simmerUpdate(ok)` when the file is in place.
+     */
+    @JavascriptInterface
+    fun downloadUpdate(url: String) {
+      Thread {
+        val ok = try {
+          require(url.startsWith(RELEASE_DOWNLOADS)) { "not a release download" }
+          val part = File(cacheDir, "update.apk.part")
+          val connection = URL(url).openConnection() as HttpURLConnection
+          connection.connectTimeout = 20_000
+          connection.readTimeout = 30_000
+          try {
+            check(connection.responseCode == 200) { "HTTP ${connection.responseCode}" }
+            connection.inputStream.use { input -> part.outputStream().use { input.copyTo(it) } }
+          } finally {
+            connection.disconnect()
+          }
+          part.renameTo(updateFile())
+        } catch (e: Exception) {
+          false
+        }
+        runOnUiThread { webView?.evaluateJavascript("window.__simmerUpdate && window.__simmerUpdate($ok)", null) }
+      }.start()
+    }
+
+    /** Open the system installer on the downloaded update. Android asks before replacing the app. */
+    @JavascriptInterface
+    fun installUpdate() {
+      val apk = updateFile()
+      if (!apk.exists()) return
+      val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.fileprovider", apk)
+      val install = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, "application/vnd.android.package-archive")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+      }
+      runOnUiThread { startActivity(install) }
     }
 
     @JavascriptInterface

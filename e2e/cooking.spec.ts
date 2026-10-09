@@ -51,6 +51,7 @@ test.describe('recipe', () => {
     await expect(page.getByRole('button', { name: 'Cooked today' })).toBeDisabled();
 
     await goTo(page, 'Saved');
+    await expect(page.getByRole('heading', { name: 'Saved', level: 1 })).toBeVisible();
     await expect(page.getByTestId('recipe-card')).toContainText(PASTA);
     await page.getByRole('radio', { name: 'Cooked' }).click();
     await expect(page.getByRole('link', { name: PASTA })).toBeVisible();

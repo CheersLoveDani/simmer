@@ -1,8 +1,8 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { copyText, downloadText } from '../platform/device';
-import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isTauri, openExternal } from '../platform/env';
-import { checkForAppUpdate, type AvailableUpdate } from '../platform/updater';
+import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExternal } from '../platform/env';
+import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
 import { useLibrary } from '../store/libraryStore';
 import { useUser, userData } from '../store/userStore';
@@ -48,7 +48,8 @@ export function Settings() {
   const reset = useUser((s) => s.reset);
   const library = useLibrary();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [appUpdate, setAppUpdate] = useState<AvailableUpdate | null | 'checking' | 'none'>(null);
+  const [appUpdate, setAppUpdate] = useState(appUpdater.getState());
+  useEffect(() => appUpdater.subscribe(setAppUpdate), []);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const refresh = async () => {
@@ -58,9 +59,17 @@ export function Settings() {
     else if (result.status === 'unsupported') toast('Update Simmer to get the newest recipes');
   };
 
-  const checkUpdate = async () => {
-    setAppUpdate('checking');
-    setAppUpdate((await checkForAppUpdate()) ?? 'none');
+  const working = ['checking', 'downloading', 'installing'].includes(appUpdate.status);
+  const canInstall = ['available', 'ready', 'failed'].includes(appUpdate.status);
+  const updateHint: Record<typeof appUpdate.status, string> = {
+    idle: !isTauri ? 'Running in a browser.' : settings.autoUpdate ? 'Updates install themselves.' : 'Updates are checked when Simmer starts.',
+    checking: 'Checking…',
+    none: 'You have the latest version.',
+    available: `Version ${appUpdate.version} is available.`,
+    downloading: `Downloading version ${appUpdate.version}…`,
+    ready: `Version ${appUpdate.version} is ready to install.`,
+    installing: `Installing version ${appUpdate.version}…`,
+    failed: `Version ${appUpdate.version} could not be installed. Try again.`,
   };
 
   const backup = () => createBackup(userData(useUser.getState()));
@@ -216,30 +225,28 @@ export function Settings() {
         <h2 id="set-about">About</h2>
         <Row
           title={`Simmer ${APP_VERSION}`}
-          hint={
-            appUpdate === 'checking'
-              ? 'Checking…'
-              : appUpdate === 'none'
-                ? 'You have the latest version.'
-                : appUpdate
-                  ? `Version ${appUpdate.version} is available.`
-                  : isTauri
-                    ? 'Updates are checked when Simmer starts.'
-                    : 'Running in a browser.'
-          }
+          hint={updateHint[appUpdate.status]}
         >
-          {appUpdate && typeof appUpdate === 'object' ? (
-            <Button variant="primary" onClick={() => void (appUpdate.install ? appUpdate.install() : openExternal(appUpdate.url ?? REPO_URL))}>
-              {appUpdate.install ? 'Install and restart' : 'Get the update'}
+          {canInstall ? (
+            <Button variant="primary" onClick={() => void appUpdater.install()}>
+              {isAndroid ? 'Install update' : 'Install and restart'}
             </Button>
           ) : (
             isTauri && (
-              <Button onClick={() => void checkUpdate()} disabled={appUpdate === 'checking'}>
+              <Button onClick={() => void appUpdater.check({ auto: false })} disabled={working}>
                 Check for updates
               </Button>
             )
           )}
         </Row>
+        {isTauri && (
+          <Row
+            title="Update automatically"
+            hint={isAndroid ? 'New versions download by themselves. Android asks before installing.' : 'New versions download and install when Simmer starts.'}
+          >
+            <Switch label="Update automatically" checked={settings.autoUpdate} onChange={(autoUpdate) => update({ autoUpdate })} />
+          </Row>
+        )}
         <Row title="Open source" hint="The app is AGPL-3.0. Recipes are CC BY-SA 4.0. Anything built from either must stay open too.">
           <Button onClick={() => void openExternal(REPO_URL)}>Source code</Button>
         </Row>
