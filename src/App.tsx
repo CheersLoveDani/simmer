@@ -1,6 +1,6 @@
 import { MotionConfig } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, RouterProvider, ScrollRestoration, createHashRouter, useNavigate } from 'react-router';
+import { NavLink, Outlet, RouterProvider, ScrollRestoration, createHashRouter, useLocation, useNavigate } from 'react-router';
 import { CommandPalette } from './features/CommandPalette';
 import { CookMode } from './features/CookMode';
 import { Home } from './features/Home';
@@ -17,6 +17,7 @@ import { checkForAppUpdate } from './platform/updater';
 import { SYNC_INTERVAL_MS, useLibrary } from './store/libraryStore';
 import { useUser } from './store/userStore';
 import { Icon, type IconName } from './ui/Icon';
+import { canGoBackInHistory, goBack, installBackNavigation } from './ui/back';
 import { toast, useMediaQuery, useWide } from './ui/hooks';
 import { Toasts } from './ui/primitives';
 
@@ -77,6 +78,7 @@ function Root() {
   const dismissNotice = useLibrary((s) => s.dismissNotice);
   useTimerEngine();
   useAutoSync();
+  useEffect(installBackNavigation, []);
 
   useEffect(() => {
     if (!notice) return;
@@ -110,6 +112,9 @@ function Shell() {
   const navigate = useNavigate();
   const openTimers = useTimerSheet((s) => s.setOpen);
   const syncing = useLibrary((s) => s.syncState === 'syncing');
+  // Read on every navigation: the history position changes with the location.
+  useLocation();
+  const canGoBack = canGoBackInHistory();
 
   return (
     <div className={`shell ${wide ? 'is-wide' : 'is-narrow'}`}>
@@ -117,6 +122,9 @@ function Shell() {
         <nav className="rail no-print" aria-label="Main">
           <button type="button" className="rail-brand" onClick={() => navigate('/')} aria-label="Simmer home">
             <img src="/icon.svg" alt="" width="40" height="40" />
+          </button>
+          <button type="button" className="rail-back" onClick={goBack} disabled={!canGoBack} aria-label="Back" title="Back (Alt+Left)">
+            <Icon name="back" />
           </button>
           <ul>
             {NAV.map((item) => (

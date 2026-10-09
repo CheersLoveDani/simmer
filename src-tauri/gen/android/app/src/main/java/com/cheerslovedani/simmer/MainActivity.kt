@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -23,6 +24,20 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(Bridge(), "SimmerNative")
+
+    // System back: the page first closes an open sheet or steps back through
+    // its own history; only when it has nothing left does the app close.
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        webView.evaluateJavascript("window.__simmerBack ? window.__simmerBack() : false") { handled ->
+          if (handled != "true") {
+            isEnabled = false
+            moveTaskToBack(true)
+            isEnabled = true
+          }
+        }
+      }
+    })
 
     // The app draws edge to edge. Not every WebView reports the system bars
     // through CSS env(), so the measurements are handed to the page directly.

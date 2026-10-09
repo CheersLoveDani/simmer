@@ -173,6 +173,19 @@ test.describe('photos', () => {
     await expect(page.locator('.photo-credit')).toHaveText('Photo by A. Baker, CC BY-SA 4.0');
     await expect(page.locator('.photo-credit a')).toHaveAttribute('href', credit.source);
 
+    // On a tablet-sized window the photo spans the page without swallowing it,
+    // and the credit sits directly beneath.
+    const size = page.viewportSize()!;
+    await page.setViewportSize({ width: 1004, height: 836 });
+    const cover = (await page.locator('.recipe-cover').boundingBox())!;
+    const creditBox = (await page.locator('.photo-credit').boundingBox())!;
+    const heading = (await page.getByTestId('recipe-page').getByRole('heading', { level: 1 }).boundingBox())!;
+    expect(cover.width).toBeGreaterThan(800);
+    expect(cover.height).toBeLessThanOrEqual(440);
+    expect(creditBox.y).toBeGreaterThanOrEqual(cover.y + cover.height);
+    expect(heading.y).toBeGreaterThanOrEqual(creditBox.y + creditBox.height);
+    await page.setViewportSize(size);
+
     // The photo is kept on the device, so it survives going offline.
     feed.goOffline();
     await page.reload();
@@ -182,5 +195,53 @@ test.describe('photos', () => {
     await page.goto(`/#/recipe/${other.id}`);
     await expect(page.locator('.recipe-cover svg')).toBeVisible();
     await expect(page.locator('.photo-credit')).toHaveCount(0);
+  });
+});
+
+test.describe('going back', () => {
+  test('the rail button returns to the previous page', async ({ page, wide }) => {
+    test.skip(!wide, 'the rail is the wide layout');
+    await open(page);
+    const back = page.getByRole('button', { name: 'Back', exact: true });
+    await expect(back).toBeDisabled();
+
+    await goTo(page, 'Search');
+    await cards(page).first().click();
+    await expect(page.getByTestId('recipe-page')).toBeVisible();
+    await back.click();
+    await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+    await back.click();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Good');
+    await expect(back).toBeDisabled();
+  });
+
+  test('Alt+Left goes back', async ({ page, wide }) => {
+    test.skip(!wide, 'keyboard shortcut is a desktop affordance');
+    await open(page);
+    await goTo(page, 'Plan');
+    await page.keyboard.press('Alt+ArrowLeft');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Good');
+  });
+
+  test('system back closes an open sheet before leaving the page', async ({ page }) => {
+    await open(page);
+    await goTo(page, 'Search');
+    await cards(page).first().click();
+    await expect(page.getByTestId('recipe-page')).toBeVisible();
+    await page.getByRole('button', { name: 'Add to a collection' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+
+    // What the Android shell calls when the system back gesture is used.
+    const systemBack = () => page.evaluate(() => window.__simmerBack?.());
+    expect(await systemBack()).toBe(true);
+    await expect(sheet).toBeHidden();
+    await expect(page.getByTestId('recipe-page')).toBeVisible();
+
+    expect(await systemBack()).toBe(true);
+    await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+    expect(await systemBack()).toBe(true);
+    // Nothing left: the shell is told to let the system handle it.
+    expect(await systemBack()).toBe(false);
   });
 });

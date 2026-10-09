@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
+import { useBackToClose } from './back';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Icon, type IconName } from './Icon';
 import { useKey, useToasts, useWide } from './hooks';
@@ -151,6 +152,7 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
   const drag = useDragControls();
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  useBackToClose(open, onClose);
 
   useKey((event) => {
     if (event.key === 'Escape') {

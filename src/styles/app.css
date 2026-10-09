@@ -1217,6 +1217,11 @@ kbd {
   padding-right: 4px;
 }
 
+.recipe-figure {
+  flex: none;
+  margin: 0;
+}
+
 .recipe-cover {
   aspect-ratio: 4 / 3;
   border-radius: var(--r-l);
@@ -1544,11 +1549,15 @@ kbd {
     padding-right: 0;
     display: contents;
   }
+  .recipe-figure {
+    order: 1;
+  }
   .recipe-cover {
     margin: 0 calc(var(--gutter) * -1);
     border-radius: 0;
-    aspect-ratio: 16 / 11;
-    order: 1;
+    /* 16:11 on a phone; capped so a tablet's full-width photo does not fill the screen. */
+    aspect-ratio: auto;
+    height: min(68.75vw, 46dvh, 440px);
   }
   .recipe-main {
     display: contents;
@@ -2164,4 +2173,26 @@ kbd {
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.rail-back {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: background var(--quick) var(--ease), opacity var(--quick) var(--ease), transform var(--quick) var(--ease);
+}
+.rail-back:hover:not(:disabled) {
+  background: var(--flame-wash);
+}
+.rail-back:active:not(:disabled) {
+  transform: translateX(-2px);
+}
+.rail-back:disabled {
+  opacity: 0.35;
+  cursor: default;
 }

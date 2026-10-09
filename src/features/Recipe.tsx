@@ -12,6 +12,7 @@ import { useSession } from '../store/sessionStore';
 import { useUser } from '../store/userStore';
 import { Icon } from '../ui/Icon';
 import { CardRow, RecipeArt, RecipeCard } from '../ui/RecipeCard';
+import { goBack } from '../ui/back';
 import { toast, useWide } from '../ui/hooks';
 import { Button, Chip, Empty, IconButton, Segmented, Sheet, Stars, Stepper } from '../ui/primitives';
 import { StepTimer } from './timers';
@@ -82,7 +83,8 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
   return (
     <article className="page recipe" data-testid="recipe-page">
       <div className="recipe-top no-print">
-        <IconButton icon="back" label="Back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} />
+        {/* On wide screens the rail carries the back button. */}
+        {wide ? <span /> : <IconButton icon="back" label="Back" onClick={() => (goBack() ? undefined : navigate('/'))} />}
         <div className="recipe-top-actions">
           <IconButton icon="heart" label={favourite ? 'Remove from favourites' : 'Add to favourites'} filled={favourite} active={favourite} aria-pressed={favourite} onClick={() => user.toggleFavourite(recipe.id)} />
           <IconButton icon="folder" label="Add to a collection" onClick={() => setCollectionsOpen(true)} />
@@ -94,23 +96,25 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
 
       <div className="recipe-layout">
         <aside className="recipe-side">
-          <div className="recipe-cover">
-            <RecipeArt recipe={recipe} shared />
-          </div>
-          {recipe.image && recipe.imageCredit && (
-            <p className="photo-credit">
-              Photo by {recipe.imageCredit.author},{' '}
-              <a
-                href={recipe.imageCredit.source}
-                onClick={(event) => {
-                  event.preventDefault();
-                  void openExternal(recipe.imageCredit!.source);
-                }}
-              >
-                {recipe.imageCredit.license}
-              </a>
-            </p>
-          )}
+          <figure className="recipe-figure">
+            <div className="recipe-cover">
+              <RecipeArt recipe={recipe} shared />
+            </div>
+            {recipe.image && recipe.imageCredit && (
+              <figcaption className="photo-credit">
+                Photo by {recipe.imageCredit.author},{' '}
+                <a
+                  href={recipe.imageCredit.source}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void openExternal(recipe.imageCredit!.source);
+                  }}
+                >
+                  {recipe.imageCredit.license}
+                </a>
+              </figcaption>
+            )}
+          </figure>
 
           <section className="ingredients" aria-labelledby="ingredients-title">
             <div className="ingredients-head">

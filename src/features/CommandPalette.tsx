@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { useBackToClose } from '../ui/back';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { formatMinutes } from '../domain/quantity';
@@ -29,6 +30,7 @@ const PLACES: Entry[] = [
 /** Ctrl/Cmd+K: jump to any recipe or screen from the keyboard. */
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  useBackToClose(open, () => setOpen(false));
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const navigate = useNavigate();
