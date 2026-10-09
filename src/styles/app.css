@@ -2350,3 +2350,11 @@ kbd {
   margin-right: 8px;
   opacity: 0.5;
 }
+
+/* With a rail there is room to spare, so rows end level with their arrows
+   instead of running out to the window edge. */
+.shell.is-wide .card-row {
+  margin: 0;
+  padding: 0 0 4px;
+  scroll-padding: 0;
+}
