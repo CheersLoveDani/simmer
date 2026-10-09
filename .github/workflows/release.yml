@@ -79,6 +79,8 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+          # The four desktop jobs all rewrite latest.json and can trip over each other.
+          retryAttempts: 3
           args: ${{ matrix.args }}
 
   android:
