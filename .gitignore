@@ -14,3 +14,4 @@ src-tauri/gen/schemas/
 *.keystore
 keystore.properties
 *.key
+dist-e2e/

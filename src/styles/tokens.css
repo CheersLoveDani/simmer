@@ -1,0 +1,77 @@
+/* Enamelware: porcelain white, a navy rim, a low gas-flame blue. */
+:root {
+  --porcelain: #f4f6f6;
+  --surface: #ffffff;
+  --surface-sunk: #e9edee;
+  --ink: #17233a;
+  --ink-soft: #55607a;
+  --line: #dbe1e5;
+  --flame: #3552d8;
+  --flame-ink: #ffffff;
+  --flame-wash: #e7ebfb;
+  --ember: #c97a12;
+  --ember-wash: #fbf0dc;
+  --danger: #b3261e;
+  --plate: #fbfcfb;
+  --plate-rim: #17233a;
+  --plate-well: #dde3e6;
+  --scrim: rgb(23 35 58 / 0.42);
+
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Type scale, set from the user's text-size preference. */
+  --text-scale: 1;
+  --t-small: calc(0.8125rem * var(--text-scale));
+  --t-body: calc(0.9375rem * var(--text-scale));
+  --t-read: calc(1.0625rem * var(--text-scale));
+  --t-lead: calc(1.3125rem * var(--text-scale));
+  --t-title: calc(1.75rem * var(--text-scale));
+  --t-display: calc(2.375rem * var(--text-scale));
+  --t-hero: calc(3.375rem * var(--text-scale));
+
+  --r-s: 8px;
+  --r-m: 14px;
+  --r-l: 22px;
+  --r-pill: 999px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --quick: 140ms;
+  --calm: 280ms;
+
+  --rail: 88px;
+  --tabbar: 62px;
+  --gutter: clamp(18px, 4vw, 44px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+/* Cast iron. */
+:root[data-theme='dark'] {
+  --porcelain: #0f141b;
+  --surface: #171e28;
+  --surface-sunk: #0b0f15;
+  --ink: #e8edf3;
+  --ink-soft: #97a3b4;
+  --line: #27313e;
+  --flame: #9aadff;
+  --flame-ink: #0f141b;
+  --flame-wash: #1c2540;
+  --ember: #f0b45a;
+  --ember-wash: #2b2314;
+  --danger: #ff8a80;
+  --plate: #eef1f1;
+  --plate-rim: #0f141b;
+  --plate-well: #cfd6da;
+  --scrim: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+:root[data-text='small'] {
+  --text-scale: 0.92;
+}
+:root[data-text='large'] {
+  --text-scale: 1.14;
+}
