@@ -94,6 +94,10 @@ export const recipeSchema = z.object({
     .optional(),
   cover: z.object({ hue: z.number().min(0).max(360), motif: z.string() }),
   image: z.string().optional(),
+  /** Who made the photo and its licence; shown wherever the photo is the subject. */
+  imageCredit: z
+    .object({ author: z.string(), license: z.string(), licenseUrl: z.string().optional(), source: z.string() })
+    .optional(),
   author: z.string().default('Simmer'),
   created: z.string(),
   updated: z.string().optional(),

@@ -2154,3 +2154,14 @@ kbd {
     display: none;
   }
 }
+
+.photo-credit {
+  margin: 8px 2px 0;
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+}
+.photo-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

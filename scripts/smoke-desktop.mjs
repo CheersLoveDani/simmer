@@ -43,7 +43,7 @@ try {
 
   await page.goto(page.url().replace(/#.*/, '#/settings'));
   await page.getByRole('button', { name: 'Check now' }).click();
-  await page.locator('.toasts').getByText(/up to date|Recipes updated/).waitFor({ timeout: 20_000 });
+  await page.locator('.toasts').getByText(/up to date|Recipes updated/).first().waitFor({ timeout: 20_000 });
   const status = await page.getByTestId('sync-status').innerText();
   check('synced with the live recipe feed', /Checked/.test(status), status);
 
@@ -65,6 +65,8 @@ try {
 
   await page.goto(page.url().replace(/#.*/, '#/recipe/brown-butter-miso-pasta'));
   await page.getByTestId('recipe-page').waitFor();
+  await page.locator('.recipe-cover img').waitFor({ timeout: 20_000 });
+  check('recipe photo loaded with its credit', (await page.locator('.photo-credit').innerText()).startsWith('Photo by'));
   if (shot) await page.screenshot({ path: shot });
   check('no console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await browser.close();

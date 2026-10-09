@@ -6,6 +6,7 @@ import { displayIngredient, formatMinutes, scaleFactor } from '../domain/quantit
 import { recipeToText } from '../domain/recipeText';
 import { label, type Recipe as RecipeType } from '../domain/schema';
 import { shareText } from '../platform/device';
+import { openExternal } from '../platform/env';
 import { useLibrary, useRecipe } from '../store/libraryStore';
 import { useSession } from '../store/sessionStore';
 import { useUser } from '../store/userStore';
@@ -96,6 +97,20 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
           <div className="recipe-cover">
             <RecipeArt recipe={recipe} shared />
           </div>
+          {recipe.image && recipe.imageCredit && (
+            <p className="photo-credit">
+              Photo by {recipe.imageCredit.author},{' '}
+              <a
+                href={recipe.imageCredit.source}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void openExternal(recipe.imageCredit!.source);
+                }}
+              >
+                {recipe.imageCredit.license}
+              </a>
+            </p>
+          )}
 
           <section className="ingredients" aria-labelledby="ingredients-title">
             <div className="ingredients-head">

@@ -19,6 +19,9 @@ export interface Feed {
   requests: string[];
 }
 
+/** A 1x1 WebP, standing in for any recipe photo. */
+const PIXEL = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');
+
 /** Stand in for the recipe feed so tests never touch the network. */
 async function mockFeed(page: Page): Promise<Feed> {
   let recipes = seedRecipes;
@@ -37,6 +40,9 @@ async function mockFeed(page: Page): Promise<Feed> {
       return json({ schemaVersion: 1, revision, generatedAt: '2026-10-09T00:00:00Z', bundle: { path: 'bundle.json', hash: 'x', bytes: 1 }, recipes: entries, images: [] });
     }
     if (file === 'bundle.json') return json({ schemaVersion: 1, recipes });
+    if (file.startsWith('img/')) {
+      return route.fulfill({ body: PIXEL, contentType: 'image/webp', headers: { 'access-control-allow-origin': '*' } });
+    }
     const single = recipes.find((r) => file === `r/${r.id}.${r.hash}.json`);
     return single ? json(single) : route.fulfill({ status: 404 });
   });

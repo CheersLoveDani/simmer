@@ -155,3 +155,32 @@ test.describe('command palette', () => {
     await expect(palette).toBeHidden();
   });
 });
+
+test.describe('photos', () => {
+  test('shows a recipe photo with its credit, and generated art otherwise', async ({ page, feed }) => {
+    const credit = { author: 'A. Baker', license: 'CC BY-SA 4.0', source: 'https://example.org/photo' };
+    const withPhoto = seedRecipes.map((r) =>
+      r.title === PASTA ? { ...r, hash: 'photo-1', image: `img/${r.id}.abc.webp`, imageCredit: credit } : { ...r, hash: `${r.hash}-plain`, image: undefined, imageCredit: undefined },
+    );
+    feed.publish(withPhoto, 'rev-photos');
+    await open(page, '/settings');
+    await page.getByRole('button', { name: 'Check now' }).click();
+    await expect(page.getByTestId('sync-status')).toContainText('Checked');
+
+    const pasta = withPhoto.find((r) => r.title === PASTA)!;
+    await page.goto(`/#/recipe/${pasta.id}`);
+    await expect(page.locator('.recipe-cover img')).toBeVisible();
+    await expect(page.locator('.photo-credit')).toHaveText('Photo by A. Baker, CC BY-SA 4.0');
+    await expect(page.locator('.photo-credit a')).toHaveAttribute('href', credit.source);
+
+    // The photo is kept on the device, so it survives going offline.
+    feed.goOffline();
+    await page.reload();
+    await expect(page.locator('.recipe-cover img')).toBeVisible();
+
+    const other = withPhoto.find((r) => r.title !== PASTA)!;
+    await page.goto(`/#/recipe/${other.id}`);
+    await expect(page.locator('.recipe-cover svg')).toBeVisible();
+    await expect(page.locator('.photo-credit')).toHaveCount(0);
+  });
+});
