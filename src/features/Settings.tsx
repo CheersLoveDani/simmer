@@ -62,7 +62,7 @@ export function Settings() {
   const working = ['checking', 'downloading', 'installing'].includes(appUpdate.status);
   const canInstall = ['available', 'ready', 'failed'].includes(appUpdate.status);
   const updateHint: Record<typeof appUpdate.status, string> = {
-    idle: !isTauri ? 'Running in a browser.' : settings.autoUpdate ? 'Updates install themselves.' : 'Updates are checked when Simmer starts.',
+    idle: !isTauri ? 'Running in a browser.' : settings.autoUpdate ? 'Updates download by themselves. Simmer asks before installing.' : 'Updates are checked when Simmer starts.',
     checking: 'Checking…',
     none: 'You have the latest version.',
     available: `Version ${appUpdate.version} is available.`,
@@ -241,10 +241,10 @@ export function Settings() {
         </Row>
         {isTauri && (
           <Row
-            title="Update automatically"
-            hint={isAndroid ? 'New versions download by themselves. Android asks before installing.' : 'New versions download and install when Simmer starts.'}
+            title="Download updates automatically"
+            hint="New versions download in the background. Simmer always asks before installing."
           >
-            <Switch label="Update automatically" checked={settings.autoUpdate} onChange={(autoUpdate) => update({ autoUpdate })} />
+            <Switch label="Download updates automatically" checked={settings.autoUpdate} onChange={(autoUpdate) => update({ autoUpdate })} />
           </Row>
         )}
         <Row title="Open source" hint="The app is AGPL-3.0. Recipes are CC BY-SA 4.0. Anything built from either must stay open too.">

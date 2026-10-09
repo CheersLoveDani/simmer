@@ -12,7 +12,7 @@ import { Settings } from './features/Settings';
 import { Shopping } from './features/Shopping';
 import { TimerDock, useTimerEngine, useTimerSheet } from './features/timers';
 import { applyNativeTheme } from './platform/device';
-import { isAndroid } from './platform/env';
+import { APP_VERSION, isAndroid, isWindows } from './platform/env';
 import { appUpdater, type UpdateState } from './platform/updater';
 import { SYNC_INTERVAL_MS, useLibrary } from './store/libraryStore';
 import { useTimers } from './store/timerStore';
@@ -20,7 +20,7 @@ import { useUser } from './store/userStore';
 import { Icon, type IconName } from './ui/Icon';
 import { canGoBackInHistory, goBack, installBackNavigation } from './ui/back';
 import { toast, useMediaQuery, useWide } from './ui/hooks';
-import { Toasts } from './ui/primitives';
+import { Button, Sheet, Toasts } from './ui/primitives';
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
@@ -97,21 +97,28 @@ function quietMoment(): boolean {
  * few hours. Returns the version being installed while the app is about to
  * restart, so the screen can say so.
  */
-function useAppUpdates(): string | null {
+function useAppUpdates(): { updating: string | null; offer: string | null; dismissOffer(): void } {
   const [state, setState] = useState<UpdateState>(appUpdater.getState());
+  // The version the "update now?" dialog is asking about.
+  const [offer, setOffer] = useState<string | null>(null);
 
   useEffect(() => {
+    // Each version is offered once per launch; after "Later" it waits in Settings.
+    const offered = new Set<string>();
     const stop = appUpdater.subscribe((next) => {
       setState(next);
-      if (next.status !== 'ready' || !next.version) return;
-      toast(`Simmer ${next.version} is ready`, { label: isAndroid ? 'Install' : 'Restart to update', run: () => void appUpdater.install() });
+      if ((next.status !== 'ready' && next.status !== 'available') || !next.version) return;
+      if (next.status === 'available' && useUser.getState().settings.autoUpdate) return; // about to download
+      if (offered.has(next.version)) return;
+      offered.add(next.version);
+      // Never interrupt cooking: mention it quietly instead.
+      if (quietMoment()) setOffer(next.version);
+      else toast(`Simmer ${next.version} is available`, { label: 'Update', run: () => void appUpdater.install() });
     });
     const check = () => {
       const { autoUpdate } = useUser.getState().settings;
-      void appUpdater.check({ auto: autoUpdate, mayRestart: quietMoment }).then(() => {
-        const { status, version } = appUpdater.getState();
-        if (status === 'available' && version) toast(`Simmer ${version} is available`, { label: 'Update', run: () => void appUpdater.install() });
-      });
+      // Updates download by themselves but are only installed when asked.
+      void appUpdater.check({ auto: autoUpdate, mayRestart: () => false });
     };
     check();
     const interval = setInterval(check, UPDATE_CHECK_INTERVAL_MS);
@@ -128,7 +135,8 @@ function useAppUpdates(): string | null {
   }, []);
 
   // Android's installer is a separate screen; only desktop restarts in place.
-  return state.status === 'installing' && !isAndroid ? state.version : null;
+  const updating = state.status === 'installing' && !isAndroid ? state.version : null;
+  return { updating, offer, dismissOffer: () => setOffer(null) };
 }
 
 function Root() {
@@ -145,7 +153,7 @@ function Root() {
     dismissNotice();
   }, [notice, dismissNotice]);
 
-  const updating = useAppUpdates();
+  const { updating, offer, dismissOffer } = useAppUpdates();
 
   if (updating) {
     return (
@@ -163,6 +171,34 @@ function Root() {
       <TimerDock />
       <Toasts />
       <CommandPalette />
+      <Sheet
+        open={offer !== null}
+        title="An update is available"
+        onClose={dismissOffer}
+        footer={
+          <>
+            <Button onClick={dismissOffer}>Later</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                dismissOffer();
+                void appUpdater.install();
+              }}
+            >
+              Update now
+            </Button>
+          </>
+        }
+      >
+        <p>Simmer {offer} is available. You have {APP_VERSION}. Would you like to update now?</p>
+        <p className="muted">
+          {isAndroid
+            ? 'Android will ask you to confirm the install.'
+            : isWindows
+              ? 'Simmer will restart. Windows may ask for administrator permission to install it.'
+              : 'Simmer will restart.'}
+        </p>
+      </Sheet>
       <ScrollRestoration />
     </MotionConfig>
   );
