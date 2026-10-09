@@ -57,6 +57,15 @@ const stepSchema = z.object({
   tip: z.string().optional(),
 });
 
+/** A link that is safe to open: feed content must never smuggle in another scheme. */
+const webUrl = z.string().refine((value) => {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}, 'must be an https link');
+
 export const recipeSchema = z.object({
   id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
   hash: z.string().min(1),
@@ -96,8 +105,9 @@ export const recipeSchema = z.object({
   image: z.string().optional(),
   /** Who made the photo and its licence; shown wherever the photo is the subject. */
   imageCredit: z
-    .object({ author: z.string(), license: z.string(), licenseUrl: z.string().optional(), source: z.string() })
-    .optional(),
+    .object({ author: z.string(), license: z.string(), licenseUrl: webUrl.optional().catch(undefined), source: webUrl })
+    .optional()
+    .catch(undefined),
   author: z.string().default('Simmer'),
   created: z.string(),
   updated: z.string().optional(),
