@@ -4,7 +4,7 @@ import path from 'node:path';
 
 type FeedRecipe = { id: string; hash: string; title: string; [key: string]: unknown };
 
-const seedDir = path.resolve(import.meta.dirname, '../src/seed');
+const seedDir = path.resolve(import.meta.dirname, 'library');
 const seedBundle = JSON.parse(readFileSync(path.join(seedDir, 'bundle.json'), 'utf8')) as { recipes: FeedRecipe[] };
 const seedManifest = JSON.parse(readFileSync(path.join(seedDir, 'manifest.json'), 'utf8')) as { revision: string };
 

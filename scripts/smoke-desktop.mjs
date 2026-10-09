@@ -37,9 +37,9 @@ try {
   check('running inside Tauri', await page.evaluate(() => '__TAURI_INTERNALS__' in window));
 
   await page.locator('nav[aria-label="Main"] a', { hasText: 'Search' }).click();
-  await page.getByRole('searchbox', { name: 'Search recipes' }).fill('brown buter pasta');
+  await page.getByRole('searchbox', { name: 'Search recipes' }).fill('ginger prok noodels');
   await page.getByTestId('recipe-card').first().waitFor();
-  check('fuzzy search finds a recipe', (await page.getByTestId('recipe-card').first().innerText()).includes('Brown Butter Miso Pasta'));
+  check('fuzzy search finds a recipe', (await page.getByTestId('recipe-card').first().innerText()).includes('Ginger Pork Noodles'));
 
   await page.goto(page.url().replace(/#.*/, '#/settings'));
   await page.getByRole('button', { name: 'Check now' }).click();
@@ -63,7 +63,7 @@ try {
   const fonts = await page.evaluate(() => document.fonts.ready.then(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family)));
   check('bundled fonts loaded', fonts.some((f) => f.includes('Fraunces')) && fonts.some((f) => f.includes('Figtree')));
 
-  await page.goto(page.url().replace(/#.*/, '#/recipe/brown-butter-miso-pasta'));
+  await page.goto(page.url().replace(/#.*/, '#/recipe/ginger-pork-noodles'));
   await page.getByTestId('recipe-page').waitFor();
   await page.locator('.recipe-cover img').waitFor({ timeout: 20_000 });
   check('recipe photo loaded with its credit', (await page.locator('.photo-credit').innerText()).startsWith('Photo by'));

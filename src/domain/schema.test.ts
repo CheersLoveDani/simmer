@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import bundle from '../seed/bundle.json';
+import bundle from '../../e2e/library/bundle.json';
 import { recipeSchema } from './schema';
 
 const base = bundle.recipes.find((r) => 'imageCredit' in r)!;

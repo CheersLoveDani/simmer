@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: {
     // The tests answer requests to this address themselves (see e2e/support.ts).
     command: `npx vite build --outDir dist-e2e && npx vite preview --outDir dist-e2e --port ${PORT} --strictPort`,
-    env: { VITE_FEED_URL: 'http://feed.test/v1/' },
+    env: { VITE_FEED_URL: 'http://feed.test/v1/', SIMMER_SEED: 'e2e/library' },
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -17,8 +17,8 @@ const SCREENS = [
   ['home', '/#/'],
   ['search', '/#/search?q=garlic'],
   ['pantry', '/#/search?mode=pantry'],
-  ['recipe', '/#/recipe/brown-butter-miso-pasta'],
-  ['cook', '/#/recipe/brown-butter-miso-pasta/cook'],
+  ['recipe', '/#/recipe/ginger-pork-noodles'],
+  ['cook', '/#/recipe/ginger-pork-noodles/cook'],
   ['plan', '/#/plan'],
   ['shopping', '/#/shopping'],
   ['saved', '/#/saved'],
@@ -28,7 +28,7 @@ const SCREENS = [
 /** Give the screens something to show: favourites, a plan and a shopping list. */
 async function prime(page) {
   for (const [id, plan] of [
-    ['brown-butter-miso-pasta', true],
+    ['ginger-pork-noodles', true],
     ['chickpea-spinach-curry', true],
     ['lemon-drizzle-cake', false],
     ['greek-salad', false],

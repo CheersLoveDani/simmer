@@ -34,7 +34,7 @@ function view(recipes: Recipe[]) {
 }
 
 async function loadSeed() {
-  const [manifest, bundle] = await Promise.all([import('../seed/manifest.json'), import('../seed/bundle.json')]);
+  const [manifest, bundle] = await Promise.all([import('@seed/manifest.json'), import('@seed/bundle.json')]);
   return { revision: manifest.default.revision, recipes: bundle.default.recipes as unknown[] };
 }
 
