@@ -1,0 +1,59 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Simmer",
+  "version": "../package.json",
+  "identifier": "com.cheerslovedani.simmer",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Simmer",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 380,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "'self' ipc: http://ipc.localhost https://cheerslovedani.github.io https://raw.githubusercontent.com https://api.github.com",
+        "img-src": "'self' blob: data:",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "category": "Lifestyle",
+    "shortDescription": "An interactive cookbook",
+    "longDescription": "Simmer is an open-source cookbook with fuzzy search, a pantry matcher, cook mode, timers, meal planning and shopping lists. Recipes update themselves from an open library.",
+    "license": "AGPL-3.0-or-later",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "minSdkVersion": 26
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY5MTAyRjJGQ0I1RDJDRUEKUldUcUxGM0xMeThRYWJuN20zYkVzcUhIQ25HUUoxTjFCRG80SEQza0tCTGZHcGpHdzlabGdCZkIK",
+      "endpoints": ["https://github.com/CheersLoveDani/simmer/releases/latest/download/latest.json"]
+    }
+  }
+}

@@ -25,6 +25,25 @@ const SCREENS = [
   ['settings', '/#/settings'],
 ];
 
+/** Give the screens something to show: favourites, a plan and a shopping list. */
+async function prime(page) {
+  for (const [id, plan] of [
+    ['brown-butter-miso-pasta', true],
+    ['chickpea-spinach-curry', true],
+    ['lemon-drizzle-cake', false],
+    ['greek-salad', false],
+    ['shakshuka', false],
+  ]) {
+    await page.goto(`${base}/#/recipe/${id}`);
+    await page.getByRole('button', { name: 'Add to favourites' }).click();
+    if (!plan) continue;
+    await page.getByRole('button', { name: 'Add to shopping list' }).click();
+    await page.getByRole('button', { name: 'Add to meal plan' }).click();
+    await page.getByRole('button', { name: 'Add to plan' }).click();
+  }
+  await page.waitForTimeout(6500);
+}
+
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch();
 for (const [device, viewport] of Object.entries(SIZES)) {
@@ -35,8 +54,7 @@ for (const [device, viewport] of Object.entries(SIZES)) {
     page.on('console', (message) => message.type() === 'error' && console.error(`[${device}] console: ${message.text()}`));
     await page.goto(`${base}/#/`);
     await page.waitForSelector('.shell');
-    // Give the screens something to show.
-    await page.evaluate(() => localStorage.setItem('simmer.shots', '1'));
+    await prime(page);
     for (const [name, url] of SCREENS) {
       if (only && name !== only) continue;
       if (scheme === 'dark' && !['home', 'recipe'].includes(name)) continue;
