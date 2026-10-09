@@ -892,6 +892,58 @@ kbd {
   scroll-padding: 0 var(--gutter);
 }
 
+.card-row.is-dragging {
+  scroll-snap-type: none;
+  cursor: grabbing;
+  user-select: none;
+}
+
+.row-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Arrows are for mice and trackpads; touch screens swipe. */
+.row-arrows {
+  display: none;
+  gap: 6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row-arrows {
+    display: flex;
+  }
+}
+
+.row-arrow {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  transition:
+    background var(--quick) var(--ease),
+    opacity var(--quick) var(--ease),
+    transform var(--quick) var(--ease);
+}
+
+.row-arrow:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+.row-arrow:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.row-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .card-row::-webkit-scrollbar {
   display: none;
 }

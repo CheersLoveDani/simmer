@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useViewTransitionState } from 'react-router';
 import { formatMinutes } from '../domain/quantity';
 import { label, type Recipe } from '../domain/schema';
@@ -67,14 +67,107 @@ export function CardGrid({ children }: { children: ReactNode }) {
   return <div className="card-grid">{children}</div>;
 }
 
+/** How far the pointer must travel before a press on a card becomes a drag. */
+const DRAG_THRESHOLD = 6;
+
+/**
+ * A row of cards that scrolls sideways. Touch scrolls it natively; with a
+ * mouse it can be dragged, and arrows appear when there is more to see.
+ */
 export function CardRow({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [can, setCan] = useState({ back: false, forward: false });
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const measure = useCallback(() => {
+    const el = row.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { back: el.scrollLeft > 4, forward: el.scrollLeft < max - 4 };
+    setCan((prev) => (prev.back === next.back && prev.forward === next.forward ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    measure();
+    el.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, [measure, children]);
+
+  const page = (direction: 1 | -1) => {
+    const el = row.current;
+    if (el) el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' });
+  };
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse' || event.button !== 0 || !row.current) return;
+    drag.current = { x: event.clientX, left: row.current.scrollLeft, moved: false };
+  };
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    if (!state || !row.current) return;
+    const delta = event.clientX - state.x;
+    if (!state.moved) {
+      if (Math.abs(delta) < DRAG_THRESHOLD) return;
+      state.moved = true;
+      setDragging(true);
+      row.current.setPointerCapture(event.pointerId);
+    }
+    row.current.scrollLeft = state.left - delta;
+  };
+  const endDrag = () => {
+    if (!drag.current) return;
+    const moved = drag.current.moved;
+    // Kept until the click that follows a drag has been swallowed.
+    if (moved) setTimeout(() => (drag.current = null), 0);
+    else drag.current = null;
+    setDragging(false);
+  };
+
+  const arrows = can.back || can.forward;
   return (
     <section className="row-section">
       <div className="row-head">
         <h2>{title}</h2>
-        {action}
+        <div className="row-tools">
+          {action}
+          {arrows && (
+            <div className="row-arrows no-print">
+              <button type="button" className="row-arrow" onClick={() => page(-1)} disabled={!can.back} aria-label={`Scroll ${title} back`}>
+                <Icon name="back" size={18} />
+              </button>
+              <button type="button" className="row-arrow" onClick={() => page(1)} disabled={!can.forward} aria-label={`Scroll ${title} forward`}>
+                <Icon name="forward" size={18} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="card-row">{children}</div>
+      <div
+        ref={row}
+        className={`card-row ${dragging ? 'is-dragging' : ''}`}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onDragStart={(event) => event.preventDefault()}
+        onClickCapture={(event) => {
+          // Letting go after a drag must not open the card under the pointer.
+          if (drag.current?.moved) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+      >
+        {children}
+      </div>
     </section>
   );
 }
