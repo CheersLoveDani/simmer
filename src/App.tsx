@@ -11,6 +11,7 @@ import { Search } from './features/Search';
 import { Settings } from './features/Settings';
 import { Shopping } from './features/Shopping';
 import { TimerDock, useTimerEngine, useTimerSheet } from './features/timers';
+import { applyNativeTheme } from './platform/device';
 import { openExternal, REPO_URL } from './platform/env';
 import { checkForAppUpdate } from './platform/updater';
 import { SYNC_INTERVAL_MS, useLibrary } from './store/libraryStore';
@@ -40,6 +41,10 @@ function useAppearance() {
     if (settings.reduceMotion) root.dataset.motion = 'reduced';
     else delete root.dataset.motion;
   }, [dark, settings.textSize, settings.reduceMotion]);
+
+  useEffect(() => {
+    void applyNativeTheme(settings.theme, dark);
+  }, [settings.theme, dark]);
 
   return settings.reduceMotion;
 }

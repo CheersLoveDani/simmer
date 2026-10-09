@@ -152,8 +152,10 @@ test.describe('settings', () => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page);
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(15, 20, 27)');
     await page.emulateMedia({ colorScheme: 'light' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(244, 246, 246)');
   });
 
   test('the measurement setting applies to recipes', async ({ page }) => {

@@ -60,7 +60,7 @@ export const test = base.extend<{ feed: Feed; wide: boolean }>({
     { auto: true },
   ],
   wide: async ({ viewport }, use) => {
-    await use((viewport?.width ?? 0) >= 900);
+    await use((viewport?.width ?? 0) >= 820);
   },
 });
 

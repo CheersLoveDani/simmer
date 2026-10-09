@@ -2,6 +2,8 @@
 interface SimmerNative {
   setKeepAwake(on: boolean): void;
   share(title: string, text: string): void;
+  setDarkChrome?(dark: boolean): void;
+  insets?(): string;
 }
 
 declare global {

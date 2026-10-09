@@ -1,4 +1,4 @@
-import { isTauri } from './env';
+import { isAndroid, isDesktopApp, isTauri } from './env';
 
 // ---- Sharing ---------------------------------------------------------------
 
@@ -140,5 +140,49 @@ export async function notify(title: string, body: string): Promise<void> {
     }
   } catch {
     // Best effort only.
+  }
+}
+
+/**
+ * On Android the page stops running when the screen is off, so a timer's alert
+ * is handed to the system to deliver at the right moment.
+ */
+export const canScheduleNotifications = isTauri && isAndroid;
+
+export async function scheduleNotification(id: number, title: string, body: string, at: Date): Promise<void> {
+  try {
+    if (!(await tauriNotificationsAllowed())) return;
+    const { sendNotification, Schedule } = await import('@tauri-apps/plugin-notification');
+    sendNotification({ id, title, body, schedule: Schedule.at(at, false, true) });
+  } catch {
+    // The in-app alert still fires when the app is next opened.
+  }
+}
+
+export async function cancelNotification(id: number): Promise<void> {
+  try {
+    const { cancel } = await import('@tauri-apps/plugin-notification');
+    await cancel([id]);
+  } catch {
+    // Nothing was scheduled, or it has already been shown.
+  }
+}
+
+// ---- Native chrome ---------------------------------------------------------
+
+/**
+ * Make the parts of the window the page does not draw match the app's theme:
+ * the title bar on desktop, the status and navigation bar icons on Android.
+ * "system" hands the title bar back to the operating system.
+ */
+export async function applyNativeTheme(choice: 'system' | 'light' | 'dark', dark: boolean): Promise<void> {
+  try {
+    window.SimmerNative?.setDarkChrome?.(dark);
+    if (isDesktopApp) {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().setTheme(choice === 'system' ? null : choice);
+    }
+  } catch {
+    // Cosmetic only.
   }
 }

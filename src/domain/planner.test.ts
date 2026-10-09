@@ -15,7 +15,7 @@ import {
   weekOf,
 } from './planner';
 import { ingredientsInStep, recipeToText } from './recipeText';
-import { formatClock, newlyDone, progress, remaining, timersReducer, type Timer } from './timers';
+import { formatClock, newlyDone, planAlerts, progress, remaining, timersReducer, type Timer } from './timers';
 
 describe('dates', () => {
   it('round-trips local dates', () => {
@@ -135,6 +135,35 @@ describe('timers', () => {
 
   it('dismisses', () => {
     expect(timersReducer(start(), { type: 'dismiss', id: 'a' })).toEqual([]);
+  });
+
+  it('plans system alerts to match the running timers', () => {
+    const running = start(start([], 'a', 1), 'b', 2);
+    const first = planAlerts(new Map(), running);
+    expect(first.schedule.map((t) => t.id)).toEqual(['a', 'b']);
+    expect(first.cancel).toEqual([]);
+
+    // Nothing changed: nothing to do.
+    expect(planAlerts(first.scheduled, running)).toMatchObject({ schedule: [], cancel: [] });
+
+    // Extending a timer moves its alert; pausing or removing one withdraws it.
+    const extended = timersReducer(running, { type: 'add', id: 'a', minutes: 1, now: 2000 });
+    const second = planAlerts(first.scheduled, extended);
+    expect(second.schedule.map((t) => t.id)).toEqual(['a']);
+    expect(second.cancel).toEqual(['a']);
+
+    const paused = timersReducer(extended, { type: 'pause', id: 'b', now: 3000 });
+    expect(planAlerts(second.scheduled, paused)).toMatchObject({ schedule: [], cancel: ['b'] });
+    expect(planAlerts(second.scheduled, timersReducer(extended, { type: 'dismiss', id: 'b' })).cancel).toEqual(['b']);
+  });
+
+  it('leaves the alert alone when a timer finishes', () => {
+    const running = start();
+    const { scheduled } = planAlerts(new Map(), running);
+    const done = timersReducer(running, { type: 'tick', now: 999_999 });
+    const plan = planAlerts(scheduled, done);
+    expect(plan).toMatchObject({ schedule: [], cancel: [] });
+    expect(plan.scheduled.size).toBe(0);
   });
 
   it('formats a clock', () => {

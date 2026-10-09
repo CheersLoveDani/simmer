@@ -4,7 +4,7 @@ import type { Recipe } from '../domain/schema';
 import { createRecipeStore } from '../store/recipeStore';
 import { feedMirrors } from '../sync/config';
 
-export const WIDE_QUERY = '(min-width: 900px)';
+export const WIDE_QUERY = '(min-width: 820px)';
 
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(

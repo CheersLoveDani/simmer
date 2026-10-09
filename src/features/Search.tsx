@@ -89,7 +89,7 @@ function RecipeSearch({ params, set }: { params: URLSearchParams; set(patch: Rec
   useEffect(() => {
     // Typing anywhere on wide screens should land in the box; on phones the
     // keyboard would cover the results, so wait for a tap.
-    if (window.matchMedia('(min-width: 900px)').matches) input.current?.focus();
+    if (window.matchMedia('(min-width: 820px)').matches) input.current?.focus();
   }, []);
 
   const { results, terms, matched } = useMemo(() => {

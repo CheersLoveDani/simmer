@@ -654,7 +654,7 @@ kbd {
   pointer-events: none;
 }
 
-@media (max-width: 899px) {
+@media (max-width: 819px) {
   .toasts {
     bottom: calc(var(--tabbar) + 16px + var(--safe-bottom));
   }
@@ -1170,7 +1170,7 @@ kbd {
   transition: width var(--calm) var(--ease);
 }
 
-@media (max-width: 899px) {
+@media (max-width: 819px) {
   .pantry {
     grid-template-columns: 1fr;
   }
@@ -1532,7 +1532,8 @@ kbd {
   border-bottom: 0;
 }
 
-@media (max-width: 899px) {
+/* Two columns need room; a narrow window with the rail stays single-column. */
+@media (max-width: 1019px) {
   .recipe-layout {
     grid-template-columns: 1fr;
   }
@@ -1718,7 +1719,7 @@ kbd {
   }
 }
 
-@media (max-width: 899px) {
+@media (max-width: 819px) {
   .timer-dock {
     right: 14px;
     bottom: calc(var(--tabbar) + 14px + var(--safe-bottom));
@@ -2144,5 +2145,12 @@ kbd {
   }
   .step {
     break-inside: avoid;
+  }
+}
+
+@media (hover: none) {
+  /* No keyboard to press it with. */
+  .search-launch kbd {
+    display: none;
   }
 }

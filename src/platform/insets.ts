@@ -17,7 +17,7 @@ function apply(top: number, bottom: number): void {
 }
 
 export function installInsets(): void {
-  const native = window.SimmerNative as { insets?: () => string } | undefined;
+  const native = window.SimmerNative;
   if (!native?.insets) return;
   window.__simmerInsets = apply;
   const [top, bottom] = native.insets().split(',').map(Number);

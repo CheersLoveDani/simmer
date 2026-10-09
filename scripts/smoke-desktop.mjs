@@ -47,6 +47,19 @@ try {
   const status = await page.getByTestId('sync-status').innerText();
   check('synced with the live recipe feed', /Checked/.test(status), status);
 
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
+  const windowTheme = () => page.evaluate(() => window.__TAURI_INTERNALS__.invoke('plugin:window|theme', { label: 'main' }));
+  const systemDark = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches);
+  check('theme follows the system by default', (await theme()) === (systemDark ? 'dark' : 'light'), `system is ${systemDark ? 'dark' : 'light'}`);
+  const opposite = systemDark ? 'Light' : 'Dark';
+  await page.getByRole('radio', { name: opposite, exact: true }).click();
+  await page.waitForFunction((want) => document.documentElement.dataset.theme === want, opposite.toLowerCase());
+  await page.waitForTimeout(500);
+  check('title bar follows the chosen theme', (await windowTheme()) === opposite.toLowerCase(), await windowTheme());
+  await page.getByRole('radio', { name: 'Auto', exact: true }).click();
+  await page.waitForFunction((want) => document.documentElement.dataset.theme === want, systemDark ? 'dark' : 'light');
+  check('Auto returns to the system theme', true);
+
   const fonts = await page.evaluate(() => document.fonts.ready.then(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family)));
   check('bundled fonts loaded', fonts.some((f) => f.includes('Fraunces')) && fonts.some((f) => f.includes('Figtree')));
 

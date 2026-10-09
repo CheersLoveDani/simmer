@@ -2,8 +2,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { formatMinutes } from '../domain/quantity';
-import { formatClock, progress, remaining, type Timer } from '../domain/timers';
-import { notify, playChime, prepareNotifications, vibrate } from '../platform/device';
+import { hashString } from '../domain/browse';
+import { formatClock, planAlerts, progress, remaining, type Timer } from '../domain/timers';
+import { canScheduleNotifications, cancelNotification, notify, playChime, prepareNotifications, scheduleNotification, vibrate } from '../platform/device';
 import { useLibrary } from '../store/libraryStore';
 import { onTimerDone, useTimers } from '../store/timerStore';
 import { useUser } from '../store/userStore';
@@ -11,9 +12,35 @@ import { Icon } from '../ui/Icon';
 import { toast } from '../ui/hooks';
 import { Button, IconButton, Sheet } from '../ui/primitives';
 
+const DONE_BODY = 'Your timer has finished.';
+const alertId = (timerId: string) => hashString(timerId) & 0x7fffffff;
+
+/** Keep the system's scheduled alerts in step with the running timers. */
+function useScheduledAlerts(): void {
+  useEffect(() => {
+    if (!canScheduleNotifications) return;
+    let scheduled = new Map<string, number>();
+    const sync = (timers: Timer[]) => {
+      const plan = planAlerts(scheduled, timers);
+      scheduled = plan.scheduled;
+      void (async () => {
+        for (const id of plan.cancel) await cancelNotification(alertId(id));
+        for (const timer of plan.schedule) {
+          await scheduleNotification(alertId(timer.id), `${timer.label} is done`, DONE_BODY, new Date(timer.endsAt));
+        }
+      })();
+    };
+    sync(useTimers.getState().timers);
+    return useTimers.subscribe((state, previous) => {
+      if (state.timers !== previous.timers) sync(state.timers);
+    });
+  }, []);
+}
+
 /** Drives every timer: ticks while any is running and raises the alert when one ends. */
 export function useTimerEngine(): void {
   const running = useTimers((s) => s.timers.some((t) => t.status === 'running'));
+  useScheduledAlerts();
 
   // Subscribed before the first tick, so a timer that ended while the app was
   // closed still raises its alert.
@@ -22,7 +49,8 @@ export function useTimerEngine(): void {
       onTimerDone((timer) => {
         if (useUser.getState().settings.timerSound) playChime();
         vibrate([200, 100, 200, 100, 400]);
-        void notify(`${timer.label} is done`, 'Your timer has finished.');
+        // Where the system delivers the alert itself, a second one would be noise.
+        if (!canScheduleNotifications) void notify(`${timer.label} is done`, DONE_BODY);
         toast(`${timer.label} is done`, {
           label: 'Dismiss',
           run: () => useTimers.getState().dispatch({ type: 'dismiss', id: timer.id }),

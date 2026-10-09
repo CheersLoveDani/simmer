@@ -48,7 +48,9 @@
   color-scheme: light;
 }
 
-/* Cast iron. */
+/* Cast iron. Applied by the app once it knows the user's choice (see App.tsx);
+   the media query below covers the moment before that, so a dark system never
+   flashes a light screen. Keep the two blocks identical. */
 :root[data-theme='dark'] {
   --porcelain: #0f141b;
   --surface: #171e28;
@@ -74,4 +76,26 @@
 }
 :root[data-text='large'] {
   --text-scale: 1.14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --porcelain: #0f141b;
+    --surface: #171e28;
+    --surface-sunk: #0b0f15;
+    --ink: #e8edf3;
+    --ink-soft: #97a3b4;
+    --line: #27313e;
+    --flame: #9aadff;
+    --flame-ink: #0f141b;
+    --flame-wash: #1c2540;
+    --ember: #f0b45a;
+    --ember-wash: #2b2314;
+    --danger: #ff8a80;
+    --plate: #eef1f1;
+    --plate-rim: #0f141b;
+    --plate-well: #cfd6da;
+    --scrim: rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
 }

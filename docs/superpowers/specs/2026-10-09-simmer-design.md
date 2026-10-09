@@ -179,7 +179,7 @@ a plain browser. That is what makes Playwright end-to-end testing possible.
 
 ## Layouts
 
-- **Desktop / wide** (≥ 900px): left navigation rail, content area, recipe
+- **Desktop / wide** (≥ 820px): left navigation rail, content area, recipe
   page in two columns (sticky ingredients beside steps), keyboard shortcuts,
   hover affordances.
 - **Android / narrow**: bottom tab bar, single column, bottom sheets for

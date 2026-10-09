@@ -98,3 +98,37 @@ export function progress(timer: Timer, now: number): number {
   if (timer.durationMs <= 0) return 1;
   return Math.min(1, Math.max(0, 1 - remaining(timer, now) / timer.durationMs));
 }
+
+export interface AlertPlan {
+  /** Timers whose alert must be (re)scheduled for their current end time. */
+  schedule: Timer[];
+  /** Ids whose previously scheduled alert no longer applies. */
+  cancel: string[];
+  /** What is scheduled after applying the plan: timer id -> end time. */
+  scheduled: Map<string, number>;
+}
+
+/**
+ * Work out which system alerts to set and which to withdraw so that exactly
+ * the running timers have one, at the time each will finish. A timer that
+ * has finished keeps its alert: it is being shown, not withdrawn.
+ */
+export function planAlerts(scheduled: ReadonlyMap<string, number>, timers: Timer[]): AlertPlan {
+  const next = new Map<string, number>();
+  const schedule: Timer[] = [];
+  const cancel: string[] = [];
+  const byId = new Map(timers.map((t) => [t.id, t]));
+  for (const timer of timers) {
+    if (timer.status !== 'running') continue;
+    next.set(timer.id, timer.endsAt);
+    const had = scheduled.get(timer.id);
+    if (had === timer.endsAt) continue;
+    if (had !== undefined) cancel.push(timer.id);
+    schedule.push(timer);
+  }
+  for (const id of scheduled.keys()) {
+    if (next.has(id)) continue;
+    if (byId.get(id)?.status !== 'done') cancel.push(id);
+  }
+  return { schedule, cancel, scheduled: next };
+}
