@@ -6,7 +6,12 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Rebuild only the Android APK for an existing release.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the APK to, e.g. v0.2.0
+        required: true
 
 permissions:
   contents: write
@@ -16,11 +21,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  TAG: ${{ github.ref_name }}
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   desktop:
     name: Desktop (${{ matrix.name }})
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -78,6 +84,7 @@ jobs:
   android:
     name: Android
     needs: desktop
+    if: ${{ !cancelled() && (needs.desktop.result == 'success' || needs.desktop.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,10 +96,11 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+      # The runner image ships the Android SDK; only the NDK version is pinned.
       - name: Install NDK
         run: |
-          sdkmanager "ndk;27.2.12479018"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
