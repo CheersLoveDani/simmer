@@ -6,12 +6,17 @@ name: Release
 on:
   push:
     tags: ['v*']
-  # Rebuild only the Android APK for an existing release.
+  # Run by hand: rebuild only the Android APK for an existing release, or
+  # untick "APK only" to build everything and create the tag and release.
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to attach the APK to, e.g. v0.2.0
+        description: Release tag, e.g. v0.2.0
         required: true
+      apk_only:
+        description: APK only (the release must already exist)
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -26,7 +31,7 @@ env:
 jobs:
   desktop:
     name: Desktop (${{ matrix.name }})
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || !inputs.apk_only
     strategy:
       fail-fast: false
       matrix:
