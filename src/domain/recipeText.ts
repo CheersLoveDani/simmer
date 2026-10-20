@@ -1,3 +1,4 @@
+import { prepWhen } from './prep';
 import { displayIngredient, formatMinutes, scaleFactor, type UnitSystem } from './quantity';
 import { fold } from './search';
 import type { Ingredient, Recipe, Step } from './schema';
@@ -13,6 +14,10 @@ export function recipeToText(recipe: Recipe, servings: number, system: UnitSyste
       const view = displayIngredient(item, factor, system);
       lines.push(`- ${[view.amount, view.name].filter(Boolean).join(' ')}${view.detail ? `, ${view.detail}` : ''}`);
     }
+  }
+  if (recipe.prep.length > 0) {
+    lines.push('', 'GET READY');
+    for (const task of recipe.prep) lines.push(`- ${task.text} (${prepWhen(task, recipe).toLowerCase()})`);
   }
   lines.push('', 'METHOD');
   recipe.steps.forEach((step, i) => lines.push(`${i + 1}. ${step.text}`));

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toISODate } from '../domain/planner';
 import { displayIngredient, scaleFactor } from '../domain/quantity';
+import { prepBefore, prepDuring } from '../domain/prep';
 import { ingredientsInStep } from '../domain/recipeText';
 import type { Recipe } from '../domain/schema';
 import { setKeepAwake } from '../platform/device';
@@ -12,6 +13,7 @@ import { useUser } from '../store/userStore';
 import { isTyping, toast, useKey } from '../ui/hooks';
 import { Button, IconButton } from '../ui/primitives';
 import { ThemeArt, useRecipeLook } from '../ui/Themed';
+import { Meanwhile } from './Recipe';
 import { StepTimer } from './timers';
 
 export function CookMode() {
@@ -117,6 +119,7 @@ function Cooking({ recipe }: { recipe: Recipe }) {
               else if (info.offset.x > 70 || info.velocity.x > 500) go(-1);
             }}
           >
+            {index === 0 && <Meanwhile title="Before you start" tasks={prepBefore(recipe).map((t) => t.text)} />}
             <p className="cook-text">{step.text}</p>
             {step.tip && <p className="step-tip">{step.tip}</p>}
             {used.length > 0 && (
@@ -132,6 +135,7 @@ function Cooking({ recipe }: { recipe: Recipe }) {
                 })}
               </ul>
             )}
+            <Meanwhile tasks={prepDuring(recipe, index).map((t) => t.text)} />
             {step.timer && <StepTimer large id={`${recipe.id}:${index}`} label={step.timer.label} minutes={step.timer.minutes} recipeId={recipe.id} />}
           </motion.div>
         </AnimatePresence>

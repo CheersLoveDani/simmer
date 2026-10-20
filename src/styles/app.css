@@ -2358,3 +2358,60 @@ kbd {
   padding: 0 0 4px;
   scroll-padding: 0;
 }
+
+/* Get ready: prep tasks, with when to do each */
+.prep-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.prep-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-read);
+  line-height: 1.5;
+}
+
+.prep-list li:last-child {
+  border-bottom: 0;
+}
+
+.prep-when {
+  color: var(--ink-soft);
+  font-size: var(--t-body);
+}
+
+.prep-meanwhile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+.prep-meanwhile-title {
+  color: var(--flame);
+  font-weight: 600;
+}
+
+.prep-meanwhile ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.cook-step .prep-meanwhile {
+  font-size: var(--t-read);
+}

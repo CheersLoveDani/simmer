@@ -51,6 +51,12 @@ const ingredientSchema = z.object({
   fixed: z.boolean().optional(),
 });
 
+const prepSchema = z.object({
+  text: z.string().min(1),
+  /** The step (from 1) whose waiting time suits this task; absent means before starting. */
+  during: z.number().int().positive().optional().catch(undefined),
+});
+
 const stepSchema = z.object({
   text: z.string().min(1),
   timer: z.object({ minutes: z.number().positive(), label: z.string().min(1) }).optional(),
@@ -117,6 +123,8 @@ export const recipeSchema = z.object({
   ingredients: z
     .array(z.object({ section: z.string().nullable().default(null), items: z.array(ingredientSchema).min(1) }))
     .min(1),
+  /** Get-ready tasks. Older feeds have none; a malformed list is dropped, not fatal. */
+  prep: z.array(prepSchema).default([]).catch([]),
   steps: z.array(stepSchema).min(1),
   equipment: z.array(z.string()).default([]),
   tips: z.array(z.string()).default([]),

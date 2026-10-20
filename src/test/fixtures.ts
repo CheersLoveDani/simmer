@@ -23,6 +23,7 @@ export function makeRecipe(partial: Partial<Recipe> & { id: string }): Recipe {
     serves: 2,
     time: { prep: 5, cook: 10, rest: 0, total: 15 },
     ingredients: [{ section: null, items: [ing({ item: 'salt', aisle: 'spices' })] }],
+    prep: [],
     steps: [{ text: 'Cook it.' }],
     equipment: [],
     tips: [],

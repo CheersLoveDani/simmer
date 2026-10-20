@@ -163,6 +163,22 @@ test.describe('timers', () => {
 });
 
 test.describe('cook mode', () => {
+  test('shows the prep list and when to do each job', async ({ page }) => {
+    await openRecipe(page);
+    const prep = page.getByRole('region', { name: 'Get ready' });
+    await expect(prep).toContainText('Finely grate the garlic.');
+    await expect(prep).toContainText('Before you start');
+    await expect(prep).toContainText('During step 1 (Spaghetti)');
+
+    await page.getByRole('link', { name: 'Start cooking' }).click();
+    const cook = page.getByTestId('cook-mode');
+    await expect(cook.getByRole('group', { name: 'Before you start' })).toContainText('Finely grate the garlic.');
+    await expect(cook.getByRole('group', { name: 'Meanwhile' })).toContainText('Thinly slice the spring onions.');
+    await cook.getByRole('button', { name: 'Next step' }).click();
+    await expect(cook.getByRole('group', { name: 'Before you start' })).toBeHidden();
+    await expect(cook.getByRole('group', { name: 'Meanwhile' })).toBeHidden();
+  });
+
   test('walks through the method and logs the cook', async ({ page }) => {
     await openRecipe(page);
     await page.getByRole('link', { name: 'Start cooking' }).click();

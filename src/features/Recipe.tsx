@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { relatedRecipes } from '../domain/browse';
 import { MEALS, addDays, formatDay, toISODate, type Meal } from '../domain/planner';
 import { displayIngredient, formatMinutes, scaleFactor } from '../domain/quantity';
+import { prepDuring, prepWhen } from '../domain/prep';
 import { recipeToText } from '../domain/recipeText';
 import { label, type Recipe as RecipeType } from '../domain/schema';
 import { shareText } from '../platform/device';
@@ -215,6 +216,20 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
             </Link>
           </header>
 
+          {recipe.prep.length > 0 && (
+            <section aria-labelledby="prep-title">
+              <h2 id="prep-title">Get ready</h2>
+              <ul className="prep-list">
+                {recipe.prep.map((task, i) => (
+                  <li key={i}>
+                    <span>{task.text}</span>
+                    <span className="prep-when">{prepWhen(task, recipe)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section aria-labelledby="method-title">
             <h2 id="method-title">Method</h2>
             <ol className="steps">
@@ -226,6 +241,7 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
                   <div className="step-body">
                     <p>{step.text}</p>
                     {step.tip && <p className="step-tip">{step.tip}</p>}
+                    <Meanwhile tasks={prepDuring(recipe, i).map((t) => t.text)} />
                     {step.timer && (
                       <div className="no-print">
                         <StepTimer id={`${recipe.id}:${i}`} label={step.timer.label} minutes={step.timer.minutes} recipeId={recipe.id} />
@@ -440,5 +456,20 @@ function CollectionsSheet({ recipeId, open, onClose }: { recipeId: string; open:
         </Button>
       </form>
     </Sheet>
+  );
+}
+
+/** Prep that fits into a step's waiting time, shown under that step. */
+export function Meanwhile({ tasks, title = 'Meanwhile' }: { tasks: string[]; title?: string }) {
+  if (tasks.length === 0) return null;
+  return (
+    <div className="prep-meanwhile" role="group" aria-label={title}>
+      <span className="prep-meanwhile-title">{title}</span>
+      <ul>
+        {tasks.map((text, i) => (
+          <li key={i}>{text}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
