@@ -59,8 +59,10 @@ export function parseIngredientLine(line: string): DraftIngredient {
     if (amount[2]) ingredient.qtyMax = toNumber(amount[2]);
     rest = rest.slice(amount[0].length);
     const word = /^([A-Za-z]+)\.?(?:\s+(?:of\s+)?|$)/.exec(rest);
-    if (word && UNITS[word[1]!] !== undefined) {
-      ingredient.unit = UNITS[word[1]!]!;
+    // Case only matters for the one-letter t (teaspoon) and T (tablespoon).
+    const unit = word && (word[1]!.length === 1 ? UNITS[word[1]!] : UNITS[word[1]!.toLowerCase()]);
+    if (word && unit) {
+      ingredient.unit = unit;
       rest = rest.slice(word[0].length);
     }
   }

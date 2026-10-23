@@ -13,6 +13,14 @@ describe('parseIngredientLine', () => {
     expect(parseIngredientLine('1 litre stock')).toMatchObject({ qty: 1, unit: 'l', item: 'stock' });
   });
 
+  it('reads unit words whatever their case', () => {
+    expect(parseIngredientLine('2 Tbsp olive oil')).toMatchObject({ qty: 2, unit: 'tbsp', item: 'olive oil' });
+    expect(parseIngredientLine('1 Cup flour')).toMatchObject({ qty: 1, unit: 'cup', item: 'flour' });
+    expect(parseIngredientLine('3 Cloves garlic')).toMatchObject({ unit: 'clove', item: 'garlic' });
+    expect(parseIngredientLine('1 T sugar')).toMatchObject({ unit: 'tbsp' });
+    expect(parseIngredientLine('1 t salt')).toMatchObject({ unit: 'tsp' });
+  });
+
   it('reads ranges', () => {
     expect(parseIngredientLine('1-2 tbsp olive oil')).toMatchObject({ qty: 1, qtyMax: 2, unit: 'tbsp', item: 'olive oil' });
     expect(parseIngredientLine('2 – 3 carrots')).toMatchObject({ qty: 2, qtyMax: 3, unit: null, item: 'carrots' });

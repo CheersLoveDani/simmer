@@ -71,6 +71,55 @@ describe('recipe books', () => {
     expect(ids()).toEqual([pasta.id]);
   });
 
+  /** Hold every request to `mirror` until released; `reached` resolves once one is waiting. */
+  function hold(mirror: string) {
+    const real = globalThis.fetch;
+    let release!: () => void;
+    let arrived!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const reached = new Promise<void>((resolve) => (arrived = resolve));
+    vi.stubGlobal('fetch', (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith(mirror)) {
+        arrived();
+        await held;
+      }
+      return real(input, init);
+    }) as typeof fetch);
+    return { release, reached };
+  }
+
+  it('a book removed while it is syncing does not come back', async () => {
+    useUser.getState().addBook(BOOK);
+    serve({ [MIRRORS[0]!]: [pasta], [BOOK.mirrors[0]!]: [curry] });
+    const gate = hold(BOOK.mirrors[0]!);
+
+    const syncing = useLibrary.getState().sync();
+    await gate.reached;
+    useUser.getState().removeBook(BOOK.key);
+    const removing = useLibrary.getState().removeBook(BOOK.key);
+    gate.release();
+    await syncing;
+    await removing;
+    expect(ids()).toEqual([pasta.id]);
+    expect(await createRecipeStore(undefined, BOOK.key).all()).toEqual([]);
+  });
+
+  it('a book added while a sync is running is synced too', async () => {
+    const OTHER = { key: 'bob-bakes', name: 'bakes', mirrors: ['https://bob.test/v1/'] };
+    useUser.getState().addBook(OTHER);
+    serve({ [MIRRORS[0]!]: [pasta], [OTHER.mirrors[0]!]: [], [BOOK.mirrors[0]!]: [curry] });
+    const gate = hold(OTHER.mirrors[0]!);
+
+    const first = useLibrary.getState().sync();
+    await gate.reached;
+    useUser.getState().addBook(BOOK);
+    const second = useLibrary.getState().sync();
+    gate.release();
+    await first;
+    await second;
+    expect(ids()).toEqual([pasta.id, `${BOOK.key}.${curry.id}`].sort());
+  });
+
   it('adds a book only once', () => {
     expect(useUser.getState().addBook(BOOK)).toBe(true);
     expect(useUser.getState().addBook(BOOK)).toBe(false);

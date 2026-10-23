@@ -56,6 +56,14 @@ async function loadSeed() {
 }
 
 let syncing: Promise<SyncResult> | null = null;
+let rerun: Promise<SyncResult> | null = null;
+/** The recipe books the running sync is working through, as one string to compare. */
+let syncingBooks = '';
+const bookKeys = () =>
+  useUser
+    .getState()
+    .books.map((b) => b.key)
+    .join(' ');
 
 export const useLibrary = create<LibraryState>()((set, get) => ({
   status: 'loading',
@@ -79,7 +87,16 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   },
 
   sync() {
-    if (syncing) return syncing;
+    if (syncing) {
+      // A book added since this run read the list would be missed: run again once it ends.
+      if (bookKeys() === syncingBooks) return syncing;
+      rerun ??= syncing.then(() => {
+        rerun = null;
+        return get().sync();
+      });
+      return rerun;
+    }
+    syncingBooks = bookKeys();
     set({ syncState: 'syncing' });
     syncing = (async () => {
       const fetcher: typeof fetch = (input, init) => fetch(input, init);
@@ -89,7 +106,14 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
       const bookStatus: LibraryState['bookStatus'] = {};
       let booksChanged = false;
       for (const book of useUser.getState().books.filter((b) => b.key !== SIMMER && b.key !== MINE)) {
-        const outcome = await syncRecipes({ fetch: fetcher, store: createRecipeStore(undefined, book.key), mirrors: book.mirrors, prefix: book.key });
+        const bookStore = createRecipeStore(undefined, book.key);
+        const outcome = await syncRecipes({ fetch: fetcher, store: bookStore, mirrors: book.mirrors, prefix: book.key });
+        // Removed while its recipes were downloading: what just landed must go too.
+        if (!useUser.getState().books.some((b) => b.key === book.key)) {
+          await bookStore.clear();
+          booksChanged = true;
+          continue;
+        }
         bookStatus[book.key] = outcome.status === 'failed' ? 'failed' : 'ok';
         if (outcome.status === 'updated') booksChanged = true;
       }

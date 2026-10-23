@@ -7,6 +7,7 @@ import { createBackup, parseBackup } from '../store/backup';
 import { getApiKey, providerFor, setApiKey } from '../import/assistant';
 import { useLibrary } from '../store/libraryStore';
 import { MINE } from '../store/recipeStore';
+import { restoreBackup } from '../store/restore';
 import { resolveBook } from '../sync/books';
 import { fetchManifest } from '../sync/sync';
 import { useUser, userData } from '../store/userStore';
@@ -48,7 +49,6 @@ export function Settings() {
   const wide = useWide();
   const settings = useUser((s) => s.settings);
   const update = useUser((s) => s.updateSettings);
-  const replaceAll = useUser((s) => s.replaceAll);
   const reset = useUser((s) => s.reset);
   const library = useLibrary();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -85,8 +85,7 @@ export function Settings() {
       toast(result.error);
       return;
     }
-    replaceAll(result.data);
-    for (const recipe of result.recipes) await useLibrary.getState().saveOwn(recipe);
+    await restoreBackup(result);
     toast('Backup restored');
   };
 
