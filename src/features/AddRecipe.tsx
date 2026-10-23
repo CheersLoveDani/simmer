@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { draftFromRecipe, emptyDraft, type RecipeDraft } from '../domain/draft';
+import { draftFromRecipe, draftSchema, emptyDraft, type RecipeDraft } from '../domain/draft';
 import { findPhoto } from '../import/photos';
 import { draftRecipe, getApiKey } from '../import/assistant';
 import { readRecipePage } from '../import/recipePage';
+import { kvDelete, kvGet, kvSet } from '../store/db';
 import { MINE } from '../store/recipeStore';
 import { useRecipe } from '../store/libraryStore';
 import { Icon, type IconName } from '../ui/Icon';
@@ -14,27 +15,18 @@ import { RecipeEditor, type EditorPhoto } from './RecipeEditor';
 
 const NEW_DRAFT_KEY = 'simmer.draft';
 
-function Choice({ icon, title, lead, to, soon }: { icon: IconName; title: string; lead: string; to?: string; soon?: boolean }) {
-  const body = (
-    <>
+function Choice({ icon, title, lead, to }: { icon: IconName; title: string; lead: string; to: string }) {
+  return (
+    <Link to={to} className="add-choice">
       <span className="add-choice-icon">
         <Icon name={icon} size={24} />
       </span>
       <span className="add-choice-text">
         <span className="add-choice-title">{title}</span>
-        <span className="muted">{soon ? 'Coming soon' : lead}</span>
+        <span className="muted">{lead}</span>
       </span>
-      {!soon && <Icon name="forward" size={18} />}
-    </>
-  );
-  return to && !soon ? (
-    <Link to={to} className="add-choice">
-      {body}
+      <Icon name="forward" size={18} />
     </Link>
-  ) : (
-    <div className="add-choice is-disabled" aria-disabled="true">
-      {body}
-    </div>
   );
 }
 
@@ -54,21 +46,40 @@ function EditorPage({ title, children }: { title: string; children: React.ReactN
 
 /** `/add`: the ways in to a new recipe. */
 export function AddRecipe() {
-  const [found, setFound] = useState<Found | null>(null);
+  // undefined while checking for a recipe found earlier and not yet saved.
+  const [found, setFound] = useState<Found | null | undefined>(undefined);
   const apiKey = useApiKey();
 
+  useEffect(() => {
+    let live = true;
+    void loadFound().then((value) => live && setFound(value));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const take = (next: Found) => {
+    void keepFound(next);
+    setFound(next);
+  };
+  const discard = () => {
+    void keepFound(null);
+    setFound(null);
+  };
+
+  if (found === undefined) return null;
   if (found) {
     return (
       <EditorPage title="Check and save">
         <p className="muted">Here is what Simmer found. Look it over, change anything you like, then save it on the last step.</p>
-        <RecipeEditor initial={found.draft} {...(found.photo ? { photo: found.photo } : {})} />
+        <RecipeEditor initial={found.draft} draftKey={FOUND_DRAFT_KEY} onStartAgain={discard} onSaved={() => void keepFound(null)} {...(found.photo ? { photo: found.photo } : {})} />
       </EditorPage>
     );
   }
   return (
     <EditorPage title="Add a recipe">
-      <FromLink onFound={setFound} apiKey={apiKey} />
-      <Describe onFound={setFound} apiKey={apiKey} />
+      <FromLink onFound={take} apiKey={apiKey} />
+      <Describe onFound={take} apiKey={apiKey} />
       <div className="add-choices">
         <Choice icon="edit" title="Fill it in yourself" lead="A step-by-step form: basics, ingredients, method." to="/add/new" />
       </div>
@@ -77,6 +88,38 @@ export function AddRecipe() {
 }
 
 type Found = { draft: RecipeDraft; photo?: EditorPhoto };
+
+// A recipe found from a link or written by the assistant is kept until it is
+// saved or thrown away, so leaving the page by accident does not lose it (or
+// cost another assistant request). The text lives with the editor's draft;
+// the photo, being a file, in the device's own storage.
+const FOUND_DRAFT_KEY = 'simmer.draft.found';
+const FOUND_PHOTO_KEY = 'draft.photo';
+
+async function keepFound(found: Found | null): Promise<void> {
+  try {
+    if (found) sessionStorage.setItem(FOUND_DRAFT_KEY, JSON.stringify(found.draft));
+    else sessionStorage.removeItem(FOUND_DRAFT_KEY);
+  } catch {
+    // Storage can be unavailable; the editor still works.
+  }
+  if (found?.photo) await kvSet(FOUND_PHOTO_KEY, found.photo);
+  else await kvDelete(FOUND_PHOTO_KEY);
+}
+
+async function loadFound(): Promise<Found | null> {
+  let saved: string | null = null;
+  try {
+    saved = sessionStorage.getItem(FOUND_DRAFT_KEY);
+  } catch {
+    return null;
+  }
+  if (!saved) return null;
+  const parsed = draftSchema.safeParse(JSON.parse(saved));
+  if (!parsed.success) return null;
+  const photo = await kvGet<EditorPhoto>(FOUND_PHOTO_KEY).catch(() => undefined);
+  return photo?.blob ? { draft: parsed.data, photo } : { draft: parsed.data };
+}
 
 /** The AI key saved in Settings; undefined while it is being read. */
 function useApiKey(): string | null | undefined {

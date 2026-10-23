@@ -215,4 +215,36 @@ test.describe('your own recipes', () => {
     );
     expect(stored).toEqual({ width: 1600, height: 1067 });
   });
+
+  test('an imported recipe is still there after leaving by accident', async ({ page }) => {
+    await mockWeb(page);
+    await open(page, '/add');
+    await page.getByRole('textbox', { name: 'Link to a recipe' }).fill('https://recipes.test/shepherds-pie');
+    await page.getByRole('button', { name: 'Import' }).click();
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Shepherd’s pie');
+    await page.getByRole('textbox', { name: 'Title' }).fill('Shepherd’s pie, my way');
+
+    await open(page, '/');
+    await open(page, '/add');
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Shepherd’s pie, my way');
+    await page.getByRole('button', { name: 'Photo' }).click();
+    await expect(page.getByText('Photo by Jo Cook, CC BY 4.0')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Start again' }).click();
+    await expect(page.getByRole('textbox', { name: 'Link to a recipe' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('textbox', { name: 'Link to a recipe' })).toBeVisible();
+  });
+
+  test('a half-written recipe can be started again', async ({ page }) => {
+    await open(page, '/add/new');
+    await expect(page.getByRole('button', { name: 'Start again' })).toHaveCount(0);
+    await page.getByRole('textbox', { name: 'Title' }).fill('Half a cake');
+    await open(page, '/');
+    await open(page, '/add/new');
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Half a cake');
+    await page.getByRole('button', { name: 'Start again' }).click();
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('');
+    await expect(page.getByRole('button', { name: 'Start again' })).toHaveCount(0);
+  });
 });

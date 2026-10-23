@@ -2505,10 +2505,6 @@ a.add-choice:hover {
   display: none;
 }
 
-.add-choice.is-disabled {
-  opacity: 0.6;
-}
-
 .add-choice-icon {
   display: grid;
   place-items: center;
@@ -2538,6 +2534,17 @@ a.add-choice:hover {
   flex-direction: column;
   gap: 24px;
   padding-bottom: 24px;
+}
+
+.editor-restored {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--r-m);
+  background: var(--ember-wash);
 }
 
 .editor-steps {

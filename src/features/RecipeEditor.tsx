@@ -20,6 +20,9 @@ interface Props {
   photo?: EditorPhoto;
   /** Where to keep the half-written draft, so leaving the page by accident loses nothing. */
   draftKey?: string;
+  /** Throw this draft away; without it, starting again empties the form. */
+  onStartAgain?(): void;
+  onSaved?(): void;
 }
 
 const STEPS = ['Basics', 'Ingredients', 'Method', 'Extras', 'Photo'] as const;
@@ -98,9 +101,15 @@ const lines = (text: string) => text.split('\n');
 const joined = (items: string[]) => items.join('\n');
 
 /** The guided form for writing or correcting one of your own recipes. */
-export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }: Props) {
+export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey, onStartAgain, onSaved }: Props) {
   const navigate = useNavigate();
   const saveOwn = useLibrary((s) => s.saveOwn);
+  const blank = useMemo(() => JSON.stringify(initial), [initial]);
+  // A draft left from last time; offered with a way to start again.
+  const [restored, setRestored] = useState(() => {
+    const saved = loadDraft(draftKey);
+    return saved !== null && JSON.stringify(saved) !== blank;
+  });
   const [draft, setDraft] = useState<RecipeDraft>(() => loadDraft(draftKey) ?? initial);
   const aisles = useAisles();
   const [groups, setGroups] = useState<Group[]>(() => toGroups(draft, aisles));
@@ -110,7 +119,21 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
   const [saving, setSaving] = useState(false);
 
   const full: RecipeDraft = useMemo(() => ({ ...draft, ingredients: fromGroups(groups) }), [draft, groups]);
-  useEffect(() => keepDraft(draftKey, full), [draftKey, full]);
+  // Only a form someone has written in is worth keeping.
+  useEffect(() => keepDraft(draftKey, onStartAgain || JSON.stringify(full) !== blank ? full : null), [draftKey, full, blank, onStartAgain]);
+
+  const startAgain = () => {
+    keepDraft(draftKey, null);
+    if (onStartAgain) {
+      onStartAgain();
+      return;
+    }
+    setDraft(initial);
+    setGroups(toGroups(initial, aisles));
+    setPhoto(offeredPhoto ?? null);
+    setStep(0);
+    setRestored(false);
+  };
   const ready = useMemo(() => buildRecipe(full, {}) !== null, [full]);
 
   const update = (patch: Partial<RecipeDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -133,6 +156,7 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
       return;
     }
     keepDraft(draftKey, null);
+    onSaved?.();
     toast(recipe ? 'Recipe updated' : 'Recipe saved');
     navigate(`/recipe/${built.id}`, { replace: true });
   };
@@ -148,6 +172,14 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
 
   return (
     <div className="editor">
+      {(restored || onStartAgain) && (
+        <div className="editor-restored">
+          <span className="muted">{onStartAgain ? 'Not what you wanted?' : 'You were part way through this recipe.'}</span>
+          <Button variant="plain" icon="refresh" onClick={startAgain}>
+            Start again
+          </Button>
+        </div>
+      )}
       <ol className="editor-steps" aria-label="Sections">
         {STEPS.map((name, i) => (
           <li key={name}>
