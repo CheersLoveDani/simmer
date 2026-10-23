@@ -53,6 +53,9 @@ export function Home() {
         </div>
         {!wide && (
           <div className="home-tools">
+            <Link to="/add" className="icon-btn" aria-label="Add a recipe" title="Add a recipe">
+              <Icon name="plus" />
+            </Link>
             <IconButton icon="timer" label="Timers" onClick={() => openTimers(true)} />
             <Link to="/settings" className="icon-btn" aria-label="Settings">
               <Icon name="settings" />

@@ -9,6 +9,7 @@ import { label, type Recipe as RecipeType } from '../domain/schema';
 import { shareText } from '../platform/device';
 import { openExternal } from '../platform/env';
 import { useLibrary, useRecipe } from '../store/libraryStore';
+import { MINE } from '../store/recipeStore';
 import { useSession } from '../store/sessionStore';
 import { useUser } from '../store/userStore';
 import { Icon } from '../ui/Icon';
@@ -41,6 +42,14 @@ export function Recipe() {
   return <RecipeView key={recipe.id} recipe={recipe} />;
 }
 
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 function RecipeView({ recipe }: { recipe: RecipeType }) {
   const { look, style: themeStyle } = useRecipeLook(recipe);
   const navigate = useNavigate();
@@ -55,6 +64,9 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
   const toggleTick = useSession((s) => s.toggleTick);
   const [planOpen, setPlanOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const own = recipe.source === MINE;
+  const deleteOwn = useLibrary((s) => s.deleteOwn);
 
   const visit = user.visit;
   useEffect(() => {
@@ -94,6 +106,8 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
           <IconButton icon="folder" label="Add to a collection" onClick={() => setCollectionsOpen(true)} />
           <IconButton icon="calendar" label="Add to meal plan" onClick={() => setPlanOpen(true)} />
           <IconButton icon="share" label="Share recipe" onClick={() => void share()} />
+          {own && <IconButton icon="edit" label="Edit recipe" onClick={() => navigate(`/recipe/${recipe.id}/edit`)} />}
+          {own && <IconButton icon="trash" label="Delete recipe" onClick={() => setDeleteOpen(true)} />}
           {wide && <IconButton icon="print" label="Print recipe" onClick={() => window.print()} />}
         </div>
       </div>
@@ -180,7 +194,20 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
           <header className="recipe-head">
             <ThemeBadge look={look} />
             <h1>{recipe.title}</h1>
-            <p className="recipe-desc">{recipe.description}</p>
+            {recipe.description && <p className="recipe-desc">{recipe.description}</p>}
+            {recipe.sourceUrl && (
+              <a
+                className="recipe-source"
+                href={recipe.sourceUrl}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void openExternal(recipe.sourceUrl!);
+                }}
+              >
+                <Icon name="link" size={16} />
+                From {hostname(recipe.sourceUrl)}
+              </a>
+            )}
             <dl className="facts">
               <div>
                 <dt>Total</dt>
@@ -358,6 +385,32 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
 
       <PlanSheet recipe={recipe} servings={servings} open={planOpen} onClose={() => setPlanOpen(false)} />
       <CollectionsSheet recipeId={recipe.id} open={collectionsOpen} onClose={() => setCollectionsOpen(false)} />
+      {own && (
+        <Sheet
+          open={deleteOpen}
+          title="Delete this recipe?"
+          onClose={() => setDeleteOpen(false)}
+          footer={
+            <>
+              <Button onClick={() => setDeleteOpen(false)}>Cancel</Button>
+              <Button
+                className="btn-danger"
+                onClick={() => {
+                  setDeleteOpen(false);
+                  void deleteOwn(recipe.id).then(() => {
+                    toast('Recipe deleted');
+                    navigate('/', { replace: true });
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </>
+          }
+        >
+          <p>{recipe.title} will be removed from this device. This cannot be undone.</p>
+        </Sheet>
+      )}
     </article>
   );
 }

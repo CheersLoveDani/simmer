@@ -2415,3 +2415,345 @@ kbd {
 .cook-step .prep-meanwhile {
   font-size: var(--t-read);
 }
+
+/* ---- Adding your own recipes -------------------------------------------- */
+
+.add-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 760px;
+}
+
+.add-choices {
+  display: grid;
+  gap: 12px;
+}
+
+.add-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: box-shadow var(--quick) var(--ease);
+}
+
+a.add-choice:hover {
+  box-shadow: inset 0 0 0 2px var(--flame);
+}
+
+.add-choice.is-disabled {
+  opacity: 0.6;
+}
+
+.add-choice-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-m);
+  background: var(--flame-wash);
+  color: var(--flame);
+}
+
+.add-choice-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.add-choice-title {
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+
+.editor-steps {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.editor-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px 0 6px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.editor-step-number {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-sunk);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.editor-step.is-done .editor-step-number {
+  background: var(--flame-wash);
+  color: var(--flame);
+}
+
+.editor-step.is-current {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+}
+
+.editor-step.is-current .editor-step-number {
+  background: var(--flame);
+  color: var(--flame-ink);
+}
+
+.editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field-label {
+  padding: 0;
+  font-weight: 600;
+}
+
+.field-hint {
+  font-size: var(--t-small);
+}
+
+.field > .stepper,
+.field > .segmented {
+  align-self: flex-start;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field-row > legend {
+  margin-bottom: 6px;
+}
+
+.editor input[type='text'],
+.editor input[type='number'],
+.editor textarea,
+.editor select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.editor textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.editor input:focus,
+.editor textarea:focus,
+.editor select:focus {
+  box-shadow: inset 0 0 0 2px var(--flame);
+}
+
+.editor-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.editor-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.editor input.editor-section {
+  font-weight: 600;
+}
+
+.editor-lines,
+.editor-method {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.editor-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 9.5rem) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-method-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.editor-method-number {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 44px;
+  font-family: var(--font-display);
+  font-size: var(--t-lead);
+  color: var(--flame);
+}
+
+.editor-method-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.editor-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-small);
+}
+
+.editor .editor-timer input {
+  width: 5.5rem;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.editor-photo {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  max-width: 420px;
+  overflow: hidden;
+  border-radius: var(--r-l);
+  background: var(--surface-sunk);
+  text-align: center;
+  padding: 16px;
+}
+
+.editor-photo img {
+  width: calc(100% + 32px);
+  height: calc(100% + 32px);
+  margin: -16px;
+  object-fit: cover;
+}
+
+.editor-foot {
+  position: sticky;
+  bottom: calc(var(--tabbar, 0px) + var(--safe-bottom, 0px) + 8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--r-l);
+  background: var(--porcelain);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.shell.is-wide .editor-foot {
+  bottom: 12px;
+}
+
+.editor-foot-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .editor-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .editor-line select {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: var(--t-small);
+  }
+}
+
+.recipe-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+}
+
+.saved-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.saved-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
