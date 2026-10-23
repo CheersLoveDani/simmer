@@ -2447,6 +2447,30 @@ a.add-choice:hover {
   box-shadow: inset 0 0 0 2px var(--flame);
 }
 
+.add-link {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.add-link-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.add-link .inline-form input[type='text'] {
+  background: var(--porcelain);
+}
+
+.add-link-status:empty {
+  display: none;
+}
+
 .add-choice.is-disabled {
   opacity: 0.6;
 }

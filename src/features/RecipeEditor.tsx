@@ -46,10 +46,22 @@ interface Group {
   lines: Line[];
 }
 
-function toGroups(draft: RecipeDraft): Group[] {
+type Aisles = Map<string, DraftIngredient['aisle']>;
+
+/** The library's aisle for an ingredient by name, trying the singular too. */
+function aisleFor(aisles: Aisles, item: string): DraftIngredient['aisle'] | undefined {
+  const name = slug(item);
+  return aisles.get(name) ?? aisles.get(name.replace(/e?s$/, ''));
+}
+
+function toGroups(draft: RecipeDraft, aisles: Aisles): Group[] {
   const groups = draft.ingredients.map((group) => ({
     section: group.section ?? '',
-    lines: group.items.map((item) => ({ text: formatIngredientLine(item), item })),
+    lines: group.items.map((item) => {
+      // Imported ingredients arrive unfiled; give them the aisle the library uses.
+      const filed = item.aisle === 'other' ? { ...item, aisle: aisleFor(aisles, item.item) ?? 'other' } : item;
+      return { text: formatIngredientLine(filed), item: filed };
+    }),
   }));
   return groups.length ? groups : [{ section: '', lines: [] }];
 }
@@ -89,7 +101,8 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
   const navigate = useNavigate();
   const saveOwn = useLibrary((s) => s.saveOwn);
   const [draft, setDraft] = useState<RecipeDraft>(() => loadDraft(draftKey) ?? initial);
-  const [groups, setGroups] = useState<Group[]>(() => toGroups(draft));
+  const aisles = useAisles();
+  const [groups, setGroups] = useState<Group[]>(() => toGroups(draft, aisles));
   const [step, setStep] = useState(0);
   const [photo, setPhoto] = useState<EditorPhoto | null>(offeredPhoto ?? null);
   const [keepExisting, setKeepExisting] = useState(Boolean(recipe?.image));
@@ -145,7 +158,7 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
 
       <section className="editor-panel" aria-label={STEPS[step]}>
         {step === 0 && <Basics draft={draft} update={update} />}
-        {step === 1 && <Ingredients groups={groups} setGroups={setGroups} />}
+        {step === 1 && <Ingredients groups={groups} setGroups={setGroups} aisles={aisles} />}
         {step === 2 && <Method draft={draft} update={update} />}
         {step === 3 && <Extras draft={draft} update={update} />}
         {step === 4 && <PhotoStep recipe={recipe} photo={photo} setPhoto={setPhoto} keepExisting={keepExisting} setKeepExisting={setKeepExisting} />}
@@ -249,10 +262,10 @@ function Basics({ draft, update }: Edit) {
 }
 
 /** The aisle the library already files an ingredient under, so new lines land in the right part of the shopping list. */
-function useAisles(): Map<string, DraftIngredient['aisle']> {
+function useAisles(): Aisles {
   const recipes = useLibrary((s) => s.recipes);
   return useMemo(() => {
-    const aisles = new Map<string, DraftIngredient['aisle']>();
+    const aisles: Aisles = new Map();
     for (const recipe of recipes)
       for (const group of recipe.ingredients)
         for (const item of group.items) {
@@ -264,12 +277,10 @@ function useAisles(): Map<string, DraftIngredient['aisle']> {
   }, [recipes]);
 }
 
-function Ingredients({ groups, setGroups }: { groups: Group[]; setGroups(next: Group[]): void }) {
-  const aisles = useAisles();
+function Ingredients({ groups, setGroups, aisles }: { groups: Group[]; setGroups(next: Group[]): void; aisles: Aisles }) {
   const read = (text: string): DraftIngredient => {
     const item = parseIngredientLine(text);
-    const name = slug(item.item);
-    return { ...item, aisle: aisles.get(name) ?? aisles.get(name.replace(/s$/, '')) ?? item.aisle };
+    return { ...item, aisle: aisleFor(aisles, item.item) ?? item.aisle };
   };
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const [focus, setFocus] = useState<string | null>(null);

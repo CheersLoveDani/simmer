@@ -1,13 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { draftFromRecipe, emptyDraft } from '../domain/draft';
+import { draftFromRecipe, emptyDraft, type RecipeDraft } from '../domain/draft';
+import { findPhoto } from '../import/photos';
+import { readRecipePage } from '../import/recipePage';
 import { MINE } from '../store/recipeStore';
 import { useRecipe } from '../store/libraryStore';
 import { Icon, type IconName } from '../ui/Icon';
 import { goBack } from '../ui/back';
 import { useWide } from '../ui/hooks';
-import { IconButton, PageHeader } from '../ui/primitives';
-import { RecipeEditor } from './RecipeEditor';
+import { Button, IconButton, PageHeader } from '../ui/primitives';
+import { RecipeEditor, type EditorPhoto } from './RecipeEditor';
 
 const NEW_DRAFT_KEY = 'simmer.draft';
 
@@ -51,14 +53,89 @@ function EditorPage({ title, children }: { title: string; children: React.ReactN
 
 /** `/add`: the ways in to a new recipe. */
 export function AddRecipe() {
+  const [found, setFound] = useState<{ draft: RecipeDraft; photo?: EditorPhoto } | null>(null);
+
+  if (found) {
+    return (
+      <EditorPage title="Check and save">
+        <p className="muted">Here is what Simmer found. Look it over, change anything you like, then save it on the last step.</p>
+        <RecipeEditor initial={found.draft} {...(found.photo ? { photo: found.photo } : {})} />
+      </EditorPage>
+    );
+  }
   return (
     <EditorPage title="Add a recipe">
+      <FromLink onFound={setFound} />
       <div className="add-choices">
-        <Choice icon="link" title="From a link" lead="Paste a recipe’s web address and Simmer reads it." soon />
         <Choice icon="sparkle" title="Describe it" lead="A rough list or a few words, and an assistant writes it up." soon />
         <Choice icon="edit" title="Fill it in yourself" lead="A step-by-step form: basics, ingredients, method." to="/add/new" />
       </div>
     </EditorPage>
+  );
+}
+
+/** Find a photo to go with a draft, without holding things up if none turns up. */
+async function withPhoto(draft: RecipeDraft): Promise<{ draft: RecipeDraft; photo?: EditorPhoto }> {
+  const photo = await findPhoto(draft.photoQuery || draft.title);
+  return photo ? { draft, photo: { blob: photo.blob, credit: photo.credit } } : { draft };
+}
+
+function FromLink({ onFound }: { onFound(found: { draft: RecipeDraft; photo?: EditorPhoto }): void }) {
+  const [address, setAddress] = useState('');
+  const [status, setStatus] = useState<'idle' | 'reading' | 'unreadable'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const importPage = async () => {
+    setStatus('reading');
+    setError(null);
+    const page = await readRecipePage(address);
+    if (!page.ok) {
+      setError(page.error);
+      setStatus('idle');
+      return;
+    }
+    if (!page.draft) {
+      setStatus('unreadable');
+      return;
+    }
+    onFound(await withPhoto(page.draft));
+  };
+
+  return (
+    <section className="add-link" aria-labelledby="add-link-title">
+      <div className="add-link-head">
+        <span className="add-choice-icon">
+          <Icon name="link" size={24} />
+        </span>
+        <div>
+          <h2 id="add-link-title" className="add-choice-title">
+            From a link
+          </h2>
+          <p className="muted">Paste a recipe’s web address. Most recipe sites work.</p>
+        </div>
+      </div>
+      <form
+        className="inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (address.trim()) void importPage();
+        }}
+      >
+        <input type="text" inputMode="url" value={address} placeholder="https://" aria-label="Link to a recipe" autoComplete="off" spellCheck={false} onChange={(event) => setAddress(event.target.value)} />
+        <Button type="submit" variant="primary" disabled={status === 'reading' || address.trim() === ''}>
+          {status === 'reading' ? 'Reading…' : 'Import'}
+        </Button>
+      </form>
+      <div role="status" className="add-link-status">
+        {status === 'reading' && <p className="muted">Reading the page…</p>}
+        {error && <p>{error}</p>}
+        {status === 'unreadable' && (
+          <p>
+            That page has no recipe Simmer can read. <span className="muted">Add a free AI key in Settings to read pages like this.</span>
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

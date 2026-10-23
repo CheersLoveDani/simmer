@@ -1,4 +1,35 @@
+import type { Page } from '@playwright/test';
 import { expect, goTo, open, test } from './support';
+
+/** A 1x1 WebP, standing in for any photo. */
+const PIXEL = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');
+const cors = { 'access-control-allow-origin': '*' };
+
+/** A recipe site with schema.org data, and Openverse answering photo searches. */
+async function mockWeb(page: Page) {
+  const recipe = {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: 'Shepherd’s pie',
+    description: 'Lamb mince under mash.',
+    recipeYield: '6',
+    prepTime: 'PT25M',
+    cookTime: 'PT40M',
+    recipeIngredient: ['500 g lamb mince', '1 kg potatoes, peeled', '200 g spaghetti'],
+    recipeInstructions: [{ '@type': 'HowToStep', text: 'Brown the mince.' }, { '@type': 'HowToStep', text: 'Top with mash and bake.' }],
+  };
+  await page.route('https://recipes.test/**', (route) =>
+    route.fulfill({ contentType: 'text/html', headers: cors, body: `<html><head><script type="application/ld+json">${JSON.stringify(recipe)}</script></head><body><h1>Shepherd’s pie</h1></body></html>` }),
+  );
+  await page.route('https://recipes.test/plain', (route) => route.fulfill({ contentType: 'text/html', headers: cors, body: '<html><body><p>Just words.</p></body></html>' }));
+  await page.route('https://api.openverse.org/**', (route) => {
+    if (route.request().url().includes('/thumb/')) return route.fulfill({ body: PIXEL, contentType: 'image/webp', headers: cors });
+    return route.fulfill({
+      headers: cors,
+      json: { results: [{ id: 'p1', creator: 'Jo Cook', license: 'by', license_version: '4.0', license_url: 'https://creativecommons.org/licenses/by/4.0/', foreign_landing_url: 'https://photos.test/p1' }] },
+    });
+  });
+}
 
 test.describe('your own recipes', () => {
   test('adds, edits and deletes your own recipe', async ({ page }) => {
@@ -56,5 +87,33 @@ test.describe('your own recipes', () => {
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('textbox', { name: 'Ingredient 1' }).fill('200 g spaghetti');
     await expect(page.getByRole('combobox', { name: 'Aisle for ingredient 1' })).toHaveValue('pantry');
+  });
+
+  test('imports a recipe from a link', async ({ page }) => {
+    await mockWeb(page);
+    await open(page, '/add');
+    await page.getByRole('textbox', { name: 'Link to a recipe' }).fill('https://recipes.test/shepherds-pie');
+    await page.getByRole('button', { name: 'Import' }).click();
+
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Shepherd’s pie');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByRole('textbox', { name: 'Ingredient 2' })).toHaveValue('1 kg potatoes, peeled');
+    await expect(page.getByRole('combobox', { name: 'Aisle for ingredient 3' })).toHaveValue('pantry');
+    await page.getByRole('button', { name: 'Photo' }).click();
+    await expect(page.getByText('Photo by Jo Cook, CC BY 4.0')).toBeVisible();
+    await page.getByRole('button', { name: 'Save recipe' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Shepherd’s pie' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'From recipes.test' })).toBeVisible();
+    await expect(page.getByText('Photo by Jo Cook')).toBeVisible();
+  });
+
+  test('says so when a page has no recipe it can read', async ({ page }) => {
+    await mockWeb(page);
+    await open(page, '/add');
+    await page.getByRole('textbox', { name: 'Link to a recipe' }).fill('recipes.test/plain');
+    await page.getByRole('button', { name: 'Import' }).click();
+    await expect(page.getByText('That page has no recipe Simmer can read.')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Link to a recipe' })).toHaveValue('recipes.test/plain');
   });
 });
