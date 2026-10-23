@@ -34,6 +34,8 @@ export interface SyncDeps {
   store: RecipeStore;
   mirrors?: string[];
   supportedVersion?: number;
+  /** A recipe book's key: its recipes are stored as `<prefix>.<id>` so they never meet another library's. */
+  prefix?: string;
 }
 
 const empty = (status: SyncResult['status'], error?: string): SyncResult => ({
@@ -89,8 +91,12 @@ export async function syncRecipes(deps: SyncDeps): Promise<SyncResult> {
     if (manifest.revision === (await store.revision())) return empty('up-to-date');
 
     const local = await store.hashes();
-    const wanted = new Map(manifest.recipes.map((entry) => [entry.id, entry]));
-    const changed = manifest.recipes.filter((entry) => local.get(entry.id) !== entry.hash);
+    const named = (id: string) => (deps.prefix ? `${deps.prefix}.${id}` : id);
+    // A dot is how the app namespaces libraries, so a feed may not use one itself.
+    const dotted = manifest.recipes.filter((entry) => entry.id.includes('.'));
+    const entries = manifest.recipes.filter((entry) => !entry.id.includes('.')).map((entry) => ({ ...entry, id: named(entry.id) }));
+    const wanted = new Map(entries.map((entry) => [entry.id, entry]));
+    const changed = entries.filter((entry) => local.get(entry.id) !== entry.hash);
     const removed = [...local.keys()].filter((id) => !wanted.has(id));
 
     // Start with the mirror that answered, fall back to the others.
@@ -110,10 +116,12 @@ export async function syncRecipes(deps: SyncDeps): Promise<SyncResult> {
     const put: Recipe[] = [];
     for (const item of raw) {
       const recipe = parseRecipe(item);
-      if (recipe && changedIds.has(recipe.id)) put.push(recipe);
+      if (!recipe || recipe.id.includes('.')) continue;
+      const id = named(recipe.id);
+      if (changedIds.has(id)) put.push({ ...recipe, id });
     }
     const received = new Set(put.map((r) => r.id));
-    const skipped = changed.filter((entry) => !received.has(entry.id)).map((entry) => entry.id);
+    const skipped = [...changed.filter((entry) => !received.has(entry.id)).map((entry) => entry.id), ...dotted.map((entry) => named(entry.id))];
 
     // With recipes skipped the revision is left alone, so a later build that
     // can read them will pick them up instead of believing it is up to date.

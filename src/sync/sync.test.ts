@@ -49,6 +49,25 @@ const ids = async () => (await store.all()).map((r) => r.id).sort();
 const run = (f: ReturnType<typeof feed>, mirrors = [A, B]) => syncRecipes({ fetch: f.fetcher, store, mirrors });
 
 describe('syncRecipes', () => {
+  it('prefixes book recipe ids', async () => {
+    const book = createRecipeStore(`sync-test-book-${n}`, 'alice');
+    const f = feed([pasta, curry]);
+    const result = await syncRecipes({ fetch: f.fetcher, store: book, mirrors: [A], prefix: 'alice' });
+    expect(result.added.sort()).toEqual([`alice.${pasta.id}`, `alice.${curry.id}`].sort());
+    expect((await book.all()).map((r) => r.id).sort()).toEqual([`alice.${pasta.id}`, `alice.${curry.id}`].sort());
+    // A second run sees the prefixed ids as already current.
+    f.manifest.revision = 'changed';
+    expect((await syncRecipes({ fetch: f.fetcher, store: book, mirrors: [A], prefix: 'alice' })).status).toBe('up-to-date');
+  });
+
+  it('skips feed ids that contain a dot', async () => {
+    const book = createRecipeStore(`sync-test-dot-${n}`, 'alice');
+    const dotted = makeRecipe({ id: 'other.stew' });
+    const result = await syncRecipes({ fetch: feed([pasta, dotted]).fetcher, store: book, mirrors: [A], prefix: 'alice' });
+    expect(result.added).toEqual([`alice.${pasta.id}`]);
+    expect(result.skipped).toEqual([`alice.other.stew`]);
+  });
+
   it('fills an empty store from the bundle in one request', async () => {
     const f = feed([pasta, curry, brownies]);
     const result = await run(f);
