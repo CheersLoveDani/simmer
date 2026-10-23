@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import type { Recipe } from '../domain/schema';
 import { createRecipeStore } from '../store/recipeStore';
 import { useUser } from '../store/userStore';
-import { feedMirrors } from '../sync/config';
+import { mirrorsFor } from '../sync/books';
 
 export const WIDE_QUERY = '(min-width: 820px)';
 
@@ -86,7 +86,7 @@ export function useFeedImage(path: string | null): string | null {
 }
 
 /** Object URL for a recipe's photo, fetched once and kept for offline use. */
-export function useRecipeImage(recipe: Pick<Recipe, 'id' | 'image'>): string | null {
+export function useRecipeImage(recipe: Pick<Recipe, 'id' | 'image'> & { source?: string }): string | null {
   const key = recipe.image ? `${recipe.id}:${recipe.image}` : null;
   const [url, setUrl] = useState<string | null>(key ? (objectUrls.get(key) ?? null) : null);
 
@@ -102,11 +102,12 @@ export function useRecipeImage(recipe: Pick<Recipe, 'id' | 'image'>): string | n
     }
     let cancelled = false;
     const path = recipe.image;
+    const source = recipe.source ?? 'simmer';
     void (async () => {
       try {
         let blob = await imageStore.image(recipe.id, path);
         if (!blob) {
-          for (const mirror of feedMirrors()) {
+          for (const mirror of mirrorsFor(source)) {
             const response = await fetch(mirror + path).catch(() => null);
             if (response?.ok) {
               blob = await response.blob();
@@ -126,7 +127,7 @@ export function useRecipeImage(recipe: Pick<Recipe, 'id' | 'image'>): string | n
     return () => {
       cancelled = true;
     };
-  }, [key, recipe.id, recipe.image]);
+  }, [key, recipe.id, recipe.image, recipe.source]);
 
   return url;
 }

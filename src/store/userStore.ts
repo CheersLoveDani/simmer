@@ -3,7 +3,7 @@ import { createJSONStorage, persist, type StateStorage } from 'zustand/middlewar
 import * as planner from '../domain/planner';
 import type { Recipe } from '../domain/schema';
 import * as shopping from '../domain/shopping';
-import { DEFAULT_SETTINGS, EMPTY_USER_DATA, userDataSchema, type Settings, type UserData } from './backup';
+import { DEFAULT_SETTINGS, EMPTY_USER_DATA, userDataSchema, type Book, type Settings, type UserData } from './backup';
 import { kvDelete, kvGet, kvSet } from './db';
 
 const RECENT_LIMIT = 12;
@@ -36,6 +36,10 @@ interface Actions {
   planRemove(id: string): void;
   planMove(id: string, date: string, meal: planner.Meal): void;
   planSetServings(id: string, servings: number): void;
+
+  /** False when a book with that key is already there. */
+  addBook(book: Book): boolean;
+  removeBook(key: string): void;
 
   updateSettings(patch: Partial<Settings>): void;
   replaceAll(data: UserData): void;
@@ -123,9 +127,17 @@ export const useUser = create<UserState>()(
       planMove: (id, date, meal) => set((s) => ({ plan: planner.moveEntry(s.plan, id, date, meal) })),
       planSetServings: (id, servings) => set((s) => ({ plan: planner.setServings(s.plan, id, servings) })),
 
+      addBook: (book) => {
+        if (get().books.some((b) => b.key === book.key)) return false;
+        set((s) => ({ books: [...s.books, book] }));
+        return true;
+      },
+      removeBook: (key) => set((s) => ({ books: s.books.filter((b) => b.key !== key) })),
+
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       replaceAll: (data) => set({ ...data }),
-      reset: () => set({ ...EMPTY_USER_DATA, settings: get().settings }),
+      // Recipe books are where recipes come from, not personal data, so they stay like settings.
+      reset: () => set({ ...EMPTY_USER_DATA, settings: get().settings, books: get().books }),
     }),
     {
       name: 'user',

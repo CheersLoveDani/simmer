@@ -1,6 +1,7 @@
 import { MotionConfig } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, RouterProvider, ScrollRestoration, createHashRouter, useLocation, useNavigate } from 'react-router';
+import { AddRecipe, EditRecipe, NewRecipe } from './features/AddRecipe';
 import { CommandPalette } from './features/CommandPalette';
 import { CookMode } from './features/CookMode';
 import { Home } from './features/Home';
@@ -234,6 +235,10 @@ function Shell() {
             ))}
           </ul>
           <div className="rail-foot">
+            <NavLink to="/add" className="rail-link">
+              <Icon name="plus" />
+              <span>Add recipe</span>
+            </NavLink>
             <button type="button" className="rail-link" onClick={() => openTimers(true)}>
               <Icon name="timer" />
               <span>Timers</span>
@@ -280,6 +285,9 @@ const router = createHashRouter([
           { path: '/', element: <Home /> },
           { path: '/search', element: <Search /> },
           { path: '/recipe/:id', element: <Recipe /> },
+          { path: '/recipe/:id/edit', element: <EditRecipe /> },
+          { path: '/add', element: <AddRecipe /> },
+          { path: '/add/new', element: <NewRecipe /> },
           { path: '/plan', element: <Planner /> },
           { path: '/shopping', element: <Shopping /> },
           { path: '/saved', element: <Saved /> },

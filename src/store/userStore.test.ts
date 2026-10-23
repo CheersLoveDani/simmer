@@ -154,6 +154,23 @@ describe('backup', () => {
     expect(parseBackup(JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: { favourites: 'nope' } })).ok).toBe(false);
   });
 
+  it('a backup carries your recipes', () => {
+    const own = { ...curry, id: 'mine.curry-ab12', source: 'mine' };
+    const parsed = parseBackup(createBackup(EMPTY_USER_DATA, new Date(), [own]));
+    expect(parsed.ok && parsed.recipes).toEqual([own]);
+  });
+
+  it('drops recipes in a backup that are not readable or not yours', () => {
+    const file = JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: {}, recipes: [{ ...curry, id: 'mine.ok-1', source: 'mine' }, { id: 'mine.broken' }, { ...pasta, source: 'simmer' }] });
+    const parsed = parseBackup(file);
+    expect(parsed.ok && parsed.recipes.map((r) => r.id)).toEqual(['mine.ok-1']);
+  });
+
+  it('an older backup leaves your recipes alone', () => {
+    const parsed = parseBackup(JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: {} }));
+    expect(parsed.ok && parsed.recipes).toEqual([]);
+  });
+
   it('fills in fields missing from an older backup', () => {
     const parsed = parseBackup(JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: { favourites: ['a'] } }));
     expect(parsed).toMatchObject({ ok: true, data: { favourites: ['a'], shopping: [], settings: { theme: 'system' } } });
@@ -164,5 +181,25 @@ describe('backup', () => {
       JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: { settings: { theme: 'neon', units: 'us' } } }),
     );
     expect(parsed).toMatchObject({ ok: true, data: { settings: { theme: 'system', units: 'us' } } });
+  });
+});
+
+describe('recipe books in backups', () => {
+  const book = { key: 'alice-family-recipes', name: 'family recipes', mirrors: ['https://alice.github.io/family-recipes/v1/'] };
+  const restore = (books: unknown[]) => {
+    const result = parseBackup(JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: { books } }));
+    return result.ok ? result.data.books : null;
+  };
+
+  it('keeps a valid book', () => {
+    expect(restore([book])).toEqual([book]);
+  });
+
+  it('drops books that would stand in for the main library or your own recipes', () => {
+    expect(restore([{ ...book, key: 'simmer' }, { ...book, key: 'mine' }, book])).toEqual([book]);
+  });
+
+  it('drops books that are not fetched over https', () => {
+    expect(restore([{ ...book, mirrors: ['http://alice.test/v1/'] }, { ...book, mirrors: ['javascript:alert(1)'] }])).toEqual([]);
   });
 });

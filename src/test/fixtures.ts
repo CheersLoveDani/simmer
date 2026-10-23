@@ -30,6 +30,7 @@ export function makeRecipe(partial: Partial<Recipe> & { id: string }): Recipe {
     substitutions: [],
     cover: { hue: 30, motif: 'bowl' },
     author: 'Simmer',
+    source: 'simmer',
     created: '2026-10-09',
     ...partial,
   };

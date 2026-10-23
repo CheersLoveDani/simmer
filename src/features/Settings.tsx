@@ -4,7 +4,12 @@ import { copyText, downloadText } from '../platform/device';
 import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExternal } from '../platform/env';
 import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
+import { getApiKey, providerFor, setApiKey } from '../import/assistant';
 import { useLibrary } from '../store/libraryStore';
+import { MINE } from '../store/recipeStore';
+import { restoreBackup } from '../store/restore';
+import { resolveBook } from '../sync/books';
+import { fetchManifest } from '../sync/sync';
 import { useUser, userData } from '../store/userStore';
 import { toast, useWide } from '../ui/hooks';
 import { Button, IconButton, Segmented } from '../ui/primitives';
@@ -44,7 +49,6 @@ export function Settings() {
   const wide = useWide();
   const settings = useUser((s) => s.settings);
   const update = useUser((s) => s.updateSettings);
-  const replaceAll = useUser((s) => s.replaceAll);
   const reset = useUser((s) => s.reset);
   const library = useLibrary();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -72,7 +76,7 @@ export function Settings() {
     failed: `Version ${appUpdate.version} could not be installed. Try again.`,
   };
 
-  const backup = () => createBackup(userData(useUser.getState()));
+  const backup = () => createBackup(userData(useUser.getState()), new Date(), useLibrary.getState().recipes.filter((r) => r.source === MINE));
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;
@@ -81,7 +85,7 @@ export function Settings() {
       toast(result.error);
       return;
     }
-    replaceAll(result.data);
+    await restoreBackup(result);
     toast('Backup restored');
   };
 
@@ -174,9 +178,13 @@ export function Settings() {
         </Row>
       </section>
 
+      <RecipeBooks />
+
+      <Assistant />
+
       <section className="setting-group" aria-labelledby="set-data">
         <h2 id="set-data">Your data</h2>
-        <p className="muted setting-note">Favourites, notes, plans and lists live only on this device. Back them up to move to another one.</p>
+        <p className="muted setting-note">Favourites, notes, plans, lists and your own recipes live only on this device. Back them up to move to another one. Photos of your recipes are not included.</p>
         <Row title="Back up">
           <Button
             onClick={() => {
@@ -252,5 +260,140 @@ export function Settings() {
         </Row>
       </section>
     </div>
+  );
+}
+
+/** Other people's published recipe feeds, synced next to the main library. */
+function RecipeBooks() {
+  const books = useUser((s) => s.books);
+  const addBook = useUser((s) => s.addBook);
+  const forgetBook = useUser((s) => s.removeBook);
+  const recipes = useLibrary((s) => s.recipes);
+  const bookStatus = useLibrary((s) => s.bookStatus);
+  const [address, setAddress] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    const book = resolveBook(address);
+    if (!book) {
+      toast('That is not a GitHub repo or feed address');
+      return;
+    }
+    if (books.some((b) => b.key === book.key)) {
+      toast(`${book.name} is already added`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await fetchManifest((input, init) => fetch(input, init), book.mirrors);
+    } catch {
+      toast('No Simmer recipe book found there');
+      setBusy(false);
+      return;
+    }
+    addBook(book);
+    setAddress('');
+    await useLibrary.getState().sync();
+    setBusy(false);
+    toast(`Added ${book.name}`);
+  };
+
+  return (
+    <section className="setting-group" aria-labelledby="set-books">
+      <h2 id="set-books">Recipe books</h2>
+      <p className="muted setting-note">Add a recipe book someone publishes on GitHub. Its recipes appear alongside the rest and update on their own.</p>
+      {books.map((book) => {
+        const count = recipes.filter((r) => r.source === book.key).length;
+        return (
+          <Row key={book.key} title={book.name} hint={bookStatus[book.key] === 'failed' ? 'Could not reach this book.' : `${count} ${count === 1 ? 'recipe' : 'recipes'}`}>
+            <Button
+              onClick={() => {
+                forgetBook(book.key);
+                void useLibrary.getState().removeBook(book.key);
+                toast(`Removed ${book.name}`);
+              }}
+            >
+              Remove
+            </Button>
+          </Row>
+        );
+      })}
+      <form
+        className="inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+      >
+        <input type="text" value={address} placeholder="owner/repo" aria-label="GitHub repo or feed address" autoComplete="off" spellCheck={false} onChange={(event) => setAddress(event.target.value)} />
+        <Button type="submit" variant="primary" icon="plus" disabled={busy || address.trim() === ''}>
+          {busy ? 'Adding…' : 'Add'}
+        </Button>
+      </form>
+    </section>
+  );
+}
+
+/** The AI key used to write recipes from a description. Kept on the device, never in backups. */
+function Assistant() {
+  const [saved, setSaved] = useState<string | null | undefined>(undefined);
+  const [draft, setDraft] = useState('');
+  useEffect(() => {
+    void getApiKey().then(setSaved);
+  }, []);
+  const provider = saved ? providerFor(saved) : null;
+
+  const save = async () => {
+    if (!providerFor(draft)) {
+      toast('That does not look like a Gemini or Claude API key');
+      return;
+    }
+    await setApiKey(draft);
+    setSaved(draft.trim());
+    setDraft('');
+    toast('Key saved');
+  };
+
+  return (
+    <section className="setting-group" aria-labelledby="set-assistant">
+      <h2 id="set-assistant">Assistant</h2>
+      <p className="muted setting-note">
+        The assistant writes a recipe from a few words, or from a page Simmer cannot read by itself. It needs your own AI key. Gemini keys are free from Google AI Studio; Google may use free-tier requests to improve its models.
+        Claude keys are paid per use from your Anthropic account. Your key stays on this device and is not part of backups.
+      </p>
+      {saved ? (
+        <Row title={provider === 'claude' ? 'Using Claude' : 'Using Google Gemini'} hint={`Key ending ${saved.slice(-4)}`}>
+          <Button
+            onClick={() => {
+              void setApiKey(null).then(() => setSaved(null));
+              toast('Key removed');
+            }}
+          >
+            Remove key
+          </Button>
+        </Row>
+      ) : (
+        <>
+          <form
+            className="inline-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+          >
+            <input type="password" value={draft} placeholder="AIza… or sk-ant-…" aria-label="Gemini or Claude API key" autoComplete="off" spellCheck={false} onChange={(event) => setDraft(event.target.value)} />
+            <Button type="submit" variant="primary" disabled={draft.trim() === '' || saved === undefined}>
+              Save key
+            </Button>
+          </form>
+          <div className="page-foot setting-links">
+            <Button onClick={() => void openExternal('https://aistudio.google.com/apikey')}>Get a free Gemini key</Button>
+            <Button variant="plain" onClick={() => void openExternal('https://console.anthropic.com/settings/keys')}>
+              Get a Claude key
+            </Button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }

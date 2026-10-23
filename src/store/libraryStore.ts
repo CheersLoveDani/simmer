@@ -5,7 +5,8 @@ import { themeSearchText } from '../domain/theme';
 import { describeSync, seedIfEmpty, syncRecipes, type SyncResult } from '../sync/sync';
 import { feedMirrors } from '../sync/config';
 import { kvGet, kvSet } from './db';
-import { createRecipeStore } from './recipeStore';
+import { useUser } from './userStore';
+import { MINE, SIMMER, allRecipes, createRecipeStore } from './recipeStore';
 
 export const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const LAST_SYNC_KEY = 'feed.lastSyncedAt';
@@ -23,12 +24,22 @@ interface LibraryState {
   lastResult: SyncResult | null;
   /** One-line summary of the most recent change, shown as a toast. */
   notice: string | null;
+  /** How each recipe book fared on the last sync, by key. */
+  bookStatus: Record<string, 'ok' | 'failed'>;
   init(): Promise<void>;
   sync(): Promise<SyncResult>;
   dismissNotice(): void;
+  /** Forget a recipe book's recipes (the book itself lives in the user store). */
+  removeBook(key: string): Promise<void>;
+  /** Add or replace one of your own recipes, with the photo chosen for it. */
+  saveOwn(recipe: Recipe, photo?: Blob): Promise<void>;
+  deleteOwn(id: string): Promise<void>;
+  /** Put back your own recipes from a backup in one go. Backups carry no photos, so a photo not already on this device is dropped with its credit. */
+  restoreOwn(recipes: Recipe[]): Promise<void>;
 }
 
 const store = createRecipeStore();
+const own = createRecipeStore(undefined, MINE);
 
 function view(recipes: Recipe[], themeList: Theme[]) {
   const sorted = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
@@ -47,6 +58,14 @@ async function loadSeed() {
 }
 
 let syncing: Promise<SyncResult> | null = null;
+let rerun: Promise<SyncResult> | null = null;
+/** The recipe books the running sync is working through, as one string to compare. */
+let syncingBooks = '';
+const bookKeys = () =>
+  useUser
+    .getState()
+    .books.map((b) => b.key)
+    .join(' ');
 
 export const useLibrary = create<LibraryState>()((set, get) => ({
   status: 'loading',
@@ -55,6 +74,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   lastSyncedAt: null,
   lastResult: null,
   notice: null,
+  bookStatus: {},
 
   async init() {
     if (get().status === 'ready') return;
@@ -63,17 +83,43 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     } catch {
       // A missing or unreadable snapshot only matters offline on first run.
     }
-    const [recipes, themes, lastSyncedAt] = await Promise.all([store.all(), store.themes(), kvGet<number>(LAST_SYNC_KEY)]);
+    const [recipes, themes, lastSyncedAt] = await Promise.all([allRecipes(), store.themes(), kvGet<number>(LAST_SYNC_KEY)]);
     set({ status: 'ready', ...view(recipes, themes), lastSyncedAt: lastSyncedAt ?? null });
     void get().sync();
   },
 
   sync() {
-    if (syncing) return syncing;
+    if (syncing) {
+      // A book added since this run read the list would be missed: run again once it ends.
+      if (bookKeys() === syncingBooks) return syncing;
+      rerun ??= syncing.then(() => {
+        rerun = null;
+        return get().sync();
+      });
+      return rerun;
+    }
+    syncingBooks = bookKeys();
     set({ syncState: 'syncing' });
     syncing = (async () => {
-      const result = await syncRecipes({ fetch: (input, init) => fetch(input, init), store, mirrors: feedMirrors() });
+      const fetcher: typeof fetch = (input, init) => fetch(input, init);
+      const result = await syncRecipes({ fetch: fetcher, store, mirrors: feedMirrors() });
       const patch: Partial<LibraryState> = { lastResult: result };
+      // Books sync after the main library, and a broken one only marks itself.
+      const bookStatus: LibraryState['bookStatus'] = {};
+      let booksChanged = false;
+      for (const book of useUser.getState().books.filter((b) => b.key !== SIMMER && b.key !== MINE)) {
+        const bookStore = createRecipeStore(undefined, book.key);
+        const outcome = await syncRecipes({ fetch: fetcher, store: bookStore, mirrors: book.mirrors, prefix: book.key });
+        // Removed while its recipes were downloading: what just landed must go too.
+        if (!useUser.getState().books.some((b) => b.key === book.key)) {
+          await bookStore.clear();
+          booksChanged = true;
+          continue;
+        }
+        bookStatus[book.key] = outcome.status === 'failed' ? 'failed' : 'ok';
+        if (outcome.status === 'updated') booksChanged = true;
+      }
+      patch.bookStatus = bookStatus;
       if (result.status === 'failed') {
         patch.syncState = 'offline';
       } else {
@@ -84,8 +130,8 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
       if (result.status === 'updated') patch.notice = describeSync(result);
       // A theme can be restyled without any recipe changing.
       const themes = result.status === 'failed' ? null : await store.themes();
-      if (result.status === 'updated' || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
-        Object.assign(patch, view(await store.all(), themes ?? []));
+      if (result.status === 'updated' || booksChanged || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
+        Object.assign(patch, view(await allRecipes(), themes ?? [...get().themes.values()]));
       }
       set(patch);
       return result;
@@ -96,6 +142,36 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   },
 
   dismissNotice: () => set({ notice: null }),
+
+  async saveOwn(recipe, photo) {
+    await own.apply({ put: [recipe], remove: [], revision: null });
+    if (photo && recipe.image) await own.saveImage(recipe.id, recipe.image, photo);
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
+
+  async restoreOwn(recipes) {
+    const put: Recipe[] = [];
+    for (const recipe of recipes) {
+      if (recipe.image && !(await own.image(recipe.id, recipe.image))) {
+        const { image: _image, imageCredit: _credit, ...rest } = recipe;
+        put.push(rest);
+      } else put.push(recipe);
+    }
+    await own.apply({ put, remove: [], revision: null });
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
+
+  async deleteOwn(id) {
+    await own.apply({ put: [], remove: [id], revision: null });
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
+
+  async removeBook(key) {
+    if (key === SIMMER || key === MINE) return;
+    await createRecipeStore(undefined, key).clear();
+    const { [key]: _gone, ...bookStatus } = get().bookStatus;
+    set({ bookStatus, ...view(await allRecipes(), [...get().themes.values()]) });
+  },
 }));
 
 export function useRecipe(id: string | undefined): Recipe | undefined {

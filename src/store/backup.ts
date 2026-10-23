@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { AISLES } from '../domain/schema';
+import { AISLES, parseRecipe, type Recipe } from '../domain/schema';
 import { MEALS } from '../domain/planner';
+import { MINE, SIMMER } from './recipeStore';
 
 export const settingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
@@ -34,6 +35,37 @@ const shoppingItemSchema = z.object({
   sources: z.array(z.object({ recipeId: z.string(), title: z.string() })).default([]),
 });
 
+function isHttps(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Another published recipe feed someone has added. */
+export const bookSchema = z.object({
+  // A book's key names its library, so it must never be one the app already uses.
+  key: z
+    .string()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+    .refine((key) => key !== SIMMER && key !== MINE),
+  name: z.string(),
+  mirrors: z.array(z.string().refine(isHttps)).min(1),
+});
+export type Book = z.infer<typeof bookSchema>;
+
+/** A damaged or hostile book is dropped on its own; the rest are kept. */
+const booksSchema = z
+  .array(z.unknown())
+  .catch([])
+  .transform((items) =>
+    items.flatMap((item) => {
+      const parsed = bookSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  );
+
 export const userDataSchema = z.object({
   favourites: z.array(z.string()).default([]),
   notes: z.record(z.string(), z.string()).default({}),
@@ -55,6 +87,7 @@ export const userDataSchema = z.object({
     )
     .default([]),
   servings: z.record(z.string(), z.number().positive()).default({}),
+  books: booksSchema.default([]),
   settings: settingsSchema.default(DEFAULT_SETTINGS),
 });
 export type UserData = z.infer<typeof userDataSchema>;
@@ -66,13 +99,15 @@ const backupSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
   data: userDataSchema,
+  /** Your own recipes; absent from backups made before you could add them. */
+  recipes: z.array(z.unknown()).catch([]).default([]),
 });
 
-export function createBackup(data: UserData, now = new Date()): string {
-  return JSON.stringify({ app: 'simmer', version: 1, exportedAt: now.toISOString(), data }, null, 2);
+export function createBackup(data: UserData, now = new Date(), recipes: Recipe[] = []): string {
+  return JSON.stringify({ app: 'simmer', version: 1, exportedAt: now.toISOString(), data, recipes }, null, 2);
 }
 
-export type BackupResult = { ok: true; data: UserData } | { ok: false; error: string };
+export type BackupResult = { ok: true; data: UserData; recipes: Recipe[] } | { ok: false; error: string };
 
 /** Validate a backup file completely before anything is replaced. */
 export function parseBackup(text: string): BackupResult {
@@ -84,5 +119,9 @@ export function parseBackup(text: string): BackupResult {
   }
   const result = backupSchema.safeParse(json);
   if (!result.success) return { ok: false, error: 'That file is not a Simmer backup.' };
-  return { ok: true, data: result.data.data };
+  // Only your own recipes come back from a file: it must not be able to replace library ones.
+  const recipes = result.data.recipes
+    .map(parseRecipe)
+    .filter((r): r is Recipe => r !== null && r.source === MINE && r.id.startsWith(`${MINE}.`));
+  return { ok: true, data: result.data.data, recipes };
 }

@@ -1,0 +1,156 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Recipe } from '../domain/schema';
+import { MIRRORS } from '../sync/sync';
+import { curry, pasta } from '../test/fixtures';
+import { EMPTY_USER_DATA } from './backup';
+import { useLibrary } from './libraryStore';
+import { createRecipeStore } from './recipeStore';
+import { useUser } from './userStore';
+
+const BOOK = { key: 'alice-family-recipes', name: 'family recipes', mirrors: ['https://alice.test/v1/'] };
+
+/** Serve a feed at each mirror; a mirror mapped to null is unreachable. */
+function serve(feeds: Record<string, Recipe[] | null>) {
+  vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
+    const url = String(input).split('?')[0]!;
+    const root = Object.keys(feeds).find((m) => url.startsWith(m));
+    const recipes = root ? feeds[root] : null;
+    if (!root || !recipes) throw new TypeError('Failed to fetch');
+    const path = url.slice(root.length);
+    if (path === 'manifest.json') {
+      return Response.json({
+        schemaVersion: 1,
+        revision: recipes.map((r) => r.hash).join('|'),
+        generatedAt: '2026-10-23T00:00:00Z',
+        bundle: { path: 'bundle.json', hash: 'b', bytes: 1 },
+        recipes: recipes.map((r) => ({ id: r.id, hash: r.hash, path: `r/${r.id}.json` })),
+      });
+    }
+    if (path === 'bundle.json') return Response.json({ schemaVersion: 1, recipes });
+    const one = recipes.find((r) => path === `r/${r.id}.json`);
+    return one ? Response.json(one) : new Response('', { status: 404 });
+  }) as typeof fetch);
+}
+
+const ids = () => useLibrary.getState().recipes.map((r) => r.id).sort();
+
+beforeEach(async () => {
+  // Let the persisted store finish loading so it cannot overwrite what a test sets.
+  await useUser.persist.rehydrate();
+  useUser.getState().replaceAll(EMPTY_USER_DATA);
+  await createRecipeStore(undefined, BOOK.key).clear();
+  await createRecipeStore(undefined, 'mine').clear();
+  serve({ [MIRRORS[0]!]: [] });
+  await useLibrary.getState().sync();
+});
+
+describe('recipe books', () => {
+  it('syncs a book next to the main library', async () => {
+    useUser.getState().addBook(BOOK);
+    serve({ [MIRRORS[0]!]: [pasta], [BOOK.mirrors[0]!]: [curry] });
+    await useLibrary.getState().sync();
+    expect(ids()).toEqual([pasta.id, `${BOOK.key}.${curry.id}`].sort());
+    expect(useLibrary.getState().bookStatus[BOOK.key]).toBe('ok');
+  });
+
+  it('a failing book does not stop the main library', async () => {
+    useUser.getState().addBook(BOOK);
+    serve({ [MIRRORS[0]!]: [pasta, curry], [BOOK.mirrors[0]!]: null });
+    const result = await useLibrary.getState().sync();
+    expect(result.status).not.toBe('failed');
+    expect(ids()).toEqual([pasta.id, curry.id].sort());
+    expect(useLibrary.getState().bookStatus[BOOK.key]).toBe('failed');
+  });
+
+  it('removing a book deletes only its recipes', async () => {
+    useUser.getState().addBook(BOOK);
+    serve({ [MIRRORS[0]!]: [pasta], [BOOK.mirrors[0]!]: [curry] });
+    await useLibrary.getState().sync();
+    useUser.getState().removeBook(BOOK.key);
+    await useLibrary.getState().removeBook(BOOK.key);
+    expect(ids()).toEqual([pasta.id]);
+  });
+
+  /** Hold every request to `mirror` until released; `reached` resolves once one is waiting. */
+  function hold(mirror: string) {
+    const real = globalThis.fetch;
+    let release!: () => void;
+    let arrived!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const reached = new Promise<void>((resolve) => (arrived = resolve));
+    vi.stubGlobal('fetch', (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith(mirror)) {
+        arrived();
+        await held;
+      }
+      return real(input, init);
+    }) as typeof fetch);
+    return { release, reached };
+  }
+
+  it('a book removed while it is syncing does not come back', async () => {
+    useUser.getState().addBook(BOOK);
+    serve({ [MIRRORS[0]!]: [pasta], [BOOK.mirrors[0]!]: [curry] });
+    const gate = hold(BOOK.mirrors[0]!);
+
+    const syncing = useLibrary.getState().sync();
+    await gate.reached;
+    useUser.getState().removeBook(BOOK.key);
+    const removing = useLibrary.getState().removeBook(BOOK.key);
+    gate.release();
+    await syncing;
+    await removing;
+    expect(ids()).toEqual([pasta.id]);
+    expect(await createRecipeStore(undefined, BOOK.key).all()).toEqual([]);
+  });
+
+  it('a book added while a sync is running is synced too', async () => {
+    const OTHER = { key: 'bob-bakes', name: 'bakes', mirrors: ['https://bob.test/v1/'] };
+    useUser.getState().addBook(OTHER);
+    serve({ [MIRRORS[0]!]: [pasta], [OTHER.mirrors[0]!]: [], [BOOK.mirrors[0]!]: [curry] });
+    const gate = hold(OTHER.mirrors[0]!);
+
+    const first = useLibrary.getState().sync();
+    await gate.reached;
+    useUser.getState().addBook(BOOK);
+    const second = useLibrary.getState().sync();
+    gate.release();
+    await first;
+    await second;
+    expect(ids()).toEqual([pasta.id, `${BOOK.key}.${curry.id}`].sort());
+  });
+
+  it('adds a book only once', () => {
+    expect(useUser.getState().addBook(BOOK)).toBe(true);
+    expect(useUser.getState().addBook(BOOK)).toBe(false);
+    expect(useUser.getState().books).toHaveLength(1);
+  });
+});
+
+describe('your own recipes', () => {
+  const own = { ...curry, id: 'mine.curry-ab12', source: 'mine', image: 'local:abc' };
+
+  it('saves a recipe with its photo and survives a sync', async () => {
+    const photo = new Blob(['x'], { type: 'image/webp' });
+    await useLibrary.getState().saveOwn(own, photo);
+    expect(ids()).toContain(own.id);
+    expect(await createRecipeStore(undefined, 'mine').image(own.id, 'local:abc')).not.toBeNull();
+
+    serve({ [MIRRORS[0]!]: [pasta] });
+    await useLibrary.getState().sync();
+    expect(ids()).toEqual([pasta.id, own.id].sort());
+  });
+
+  it('deletes a recipe', async () => {
+    await useLibrary.getState().saveOwn(own);
+    await useLibrary.getState().deleteOwn(own.id);
+    expect(ids()).not.toContain(own.id);
+  });
+
+  it('only deletes your own recipes', async () => {
+    serve({ [MIRRORS[0]!]: [pasta] });
+    await useLibrary.getState().sync();
+    await useLibrary.getState().deleteOwn(pasta.id);
+    expect(ids()).toContain(pasta.id);
+  });
+});

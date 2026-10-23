@@ -21,6 +21,13 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.12.1", features = [] }
 tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
+# Recipe pages, AI and photo APIs are fetched natively: a web page may not read most sites.
+tauri-plugin-http = "2"
+# Recipe pages are fetched by the app's own command, which checks where each request really goes.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["net"] }
+url = "2"
+encoding_rs = "0.8"
 
 # In-place updates exist on desktop only; Android installs come from releases.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
@@ -28,6 +35,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 # Reopen the window where, and at the size, it was left.
 tauri-plugin-window-state = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
 
 [profile.release]
 codegen-units = 1

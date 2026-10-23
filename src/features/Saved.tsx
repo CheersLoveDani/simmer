@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { formatDay, toISODate } from '../domain/planner';
 import type { Recipe } from '../domain/schema';
 import { useLibrary } from '../store/libraryStore';
+import { MINE } from '../store/recipeStore';
 import { useUser } from '../store/userStore';
 import { CardGrid, RecipeCard } from '../ui/RecipeCard';
 import { toast } from '../ui/hooks';
@@ -29,7 +30,12 @@ export function Saved() {
           ]}
         />
       </PageHeader>
-      {tab === 'favourites' && <Favourites />}
+      {tab === 'favourites' && (
+        <>
+          <YourRecipes />
+          <Favourites />
+        </>
+      )}
       {tab === 'collections' && (collectionId ? <CollectionView id={collectionId} /> : <Collections />)}
       {tab === 'cooked' && <Cooked />}
     </div>
@@ -39,6 +45,28 @@ export function Saved() {
 function useKnown(ids: string[]): Recipe[] {
   const byId = useLibrary((s) => s.byId);
   return ids.map((id) => byId.get(id)).filter((r): r is Recipe => r !== undefined);
+}
+
+/** Recipes you added yourself, newest first. */
+function YourRecipes() {
+  const all = useLibrary((s) => s.recipes);
+  const yours = all.filter((r) => r.source === MINE).sort((a, b) => (b.updated ?? b.created).localeCompare(a.updated ?? a.created));
+  if (yours.length === 0) return null;
+  return (
+    <section className="saved-section" aria-labelledby="your-recipes">
+      <div className="saved-section-head">
+        <h2 id="your-recipes">Your recipes</h2>
+        <Link to="/add" className="btn btn-quiet">
+          Add a recipe
+        </Link>
+      </div>
+      <CardGrid>
+        {yours.map((recipe) => (
+          <RecipeCard key={recipe.id} recipe={recipe} />
+        ))}
+      </CardGrid>
+    </section>
+  );
 }
 
 function Favourites() {
