@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AISLES } from '../domain/schema';
+import { AISLES, parseRecipe, type Recipe } from '../domain/schema';
 import { MEALS } from '../domain/planner';
 import { MINE, SIMMER } from './recipeStore';
 
@@ -99,13 +99,15 @@ const backupSchema = z.object({
   version: z.literal(1),
   exportedAt: z.string(),
   data: userDataSchema,
+  /** Your own recipes; absent from backups made before you could add them. */
+  recipes: z.array(z.unknown()).catch([]).default([]),
 });
 
-export function createBackup(data: UserData, now = new Date()): string {
-  return JSON.stringify({ app: 'simmer', version: 1, exportedAt: now.toISOString(), data }, null, 2);
+export function createBackup(data: UserData, now = new Date(), recipes: Recipe[] = []): string {
+  return JSON.stringify({ app: 'simmer', version: 1, exportedAt: now.toISOString(), data, recipes }, null, 2);
 }
 
-export type BackupResult = { ok: true; data: UserData } | { ok: false; error: string };
+export type BackupResult = { ok: true; data: UserData; recipes: Recipe[] } | { ok: false; error: string };
 
 /** Validate a backup file completely before anything is replaced. */
 export function parseBackup(text: string): BackupResult {
@@ -117,5 +119,9 @@ export function parseBackup(text: string): BackupResult {
   }
   const result = backupSchema.safeParse(json);
   if (!result.success) return { ok: false, error: 'That file is not a Simmer backup.' };
-  return { ok: true, data: result.data.data };
+  // Only your own recipes come back from a file: it must not be able to replace library ones.
+  const recipes = result.data.recipes
+    .map(parseRecipe)
+    .filter((r): r is Recipe => r !== null && r.source === MINE && r.id.startsWith(`${MINE}.`));
+  return { ok: true, data: result.data.data, recipes };
 }

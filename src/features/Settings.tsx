@@ -5,6 +5,7 @@ import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExtern
 import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
 import { useLibrary } from '../store/libraryStore';
+import { MINE } from '../store/recipeStore';
 import { resolveBook } from '../sync/books';
 import { fetchManifest } from '../sync/sync';
 import { useUser, userData } from '../store/userStore';
@@ -74,7 +75,7 @@ export function Settings() {
     failed: `Version ${appUpdate.version} could not be installed. Try again.`,
   };
 
-  const backup = () => createBackup(userData(useUser.getState()));
+  const backup = () => createBackup(userData(useUser.getState()), new Date(), useLibrary.getState().recipes.filter((r) => r.source === MINE));
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;
@@ -84,6 +85,7 @@ export function Settings() {
       return;
     }
     replaceAll(result.data);
+    for (const recipe of result.recipes) await useLibrary.getState().saveOwn(recipe);
     toast('Backup restored');
   };
 
@@ -180,7 +182,7 @@ export function Settings() {
 
       <section className="setting-group" aria-labelledby="set-data">
         <h2 id="set-data">Your data</h2>
-        <p className="muted setting-note">Favourites, notes, plans and lists live only on this device. Back them up to move to another one.</p>
+        <p className="muted setting-note">Favourites, notes, plans, lists and your own recipes live only on this device. Back them up to move to another one. Photos of your recipes are not included.</p>
         <Row title="Back up">
           <Button
             onClick={() => {
