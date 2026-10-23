@@ -1,6 +1,6 @@
 {
   "name": "simmer",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "An interactive cookbook for desktop and Android",
   "type": "module",

@@ -1,4 +1,4 @@
-import { parseThemes, type Recipe, type Theme } from '../domain/schema';
+import { parseRecipe, parseThemes, type Recipe, type Theme } from '../domain/schema';
 import { openDatabase } from './db';
 
 export interface RecipeChange {
@@ -27,14 +27,16 @@ const THEMES_KEY = 'feed.themes';
 export function createRecipeStore(dbName?: string): RecipeStore {
   return {
     async all() {
-      return (await openDatabase(dbName)).getAll('recipes');
+      // Re-read through the schema so recipes saved by an older version get the fields added since.
+      const stored = await (await openDatabase(dbName)).getAll('recipes');
+      return stored.map(parseRecipe).filter((r): r is Recipe => r !== null);
     },
     async revision() {
       return ((await (await openDatabase(dbName)).get('kv', REVISION_KEY)) as string | undefined) ?? null;
     },
     async hashes() {
-      const recipes = await (await openDatabase(dbName)).getAll('recipes');
-      return new Map(recipes.map((r) => [r.id, r.hash]));
+      // An unreadable stored recipe has no hash, so the next sync fetches it again.
+      return new Map((await this.all()).map((r) => [r.id, r.hash]));
     },
     async themes() {
       return parseThemes(await (await openDatabase(dbName)).get('kv', THEMES_KEY));
