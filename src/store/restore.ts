@@ -17,6 +17,6 @@ export async function restoreBackup({ data, recipes }: { data: UserData; recipes
   useUser.getState().replaceAll(data);
   const library = useLibrary.getState();
   for (const key of dropped) await library.removeBook(key);
-  for (const recipe of recipes) await library.saveOwn(recipe);
+  if (recipes.length) await library.restoreOwn(recipes);
   await library.sync();
 }

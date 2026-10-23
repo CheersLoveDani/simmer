@@ -34,6 +34,8 @@ interface LibraryState {
   /** Add or replace one of your own recipes, with the photo chosen for it. */
   saveOwn(recipe: Recipe, photo?: Blob): Promise<void>;
   deleteOwn(id: string): Promise<void>;
+  /** Put back your own recipes from a backup in one go. Backups carry no photos, so a photo not already on this device is dropped with its credit. */
+  restoreOwn(recipes: Recipe[]): Promise<void>;
 }
 
 const store = createRecipeStore();
@@ -144,6 +146,18 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   async saveOwn(recipe, photo) {
     await own.apply({ put: [recipe], remove: [], revision: null });
     if (photo && recipe.image) await own.saveImage(recipe.id, recipe.image, photo);
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
+
+  async restoreOwn(recipes) {
+    const put: Recipe[] = [];
+    for (const recipe of recipes) {
+      if (recipe.image && !(await own.image(recipe.id, recipe.image))) {
+        const { image: _image, imageCredit: _credit, ...rest } = recipe;
+        put.push(rest);
+      } else put.push(recipe);
+    }
+    await own.apply({ put, remove: [], revision: null });
     set(view(await allRecipes(), [...get().themes.values()]));
   },
 

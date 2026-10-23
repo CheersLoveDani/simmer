@@ -55,4 +55,24 @@ describe('restoreBackup', () => {
     await restoreBackup({ data: { ...EMPTY_USER_DATA, books: [OLD] }, recipes: [own] });
     expect(ids()).toContain(own.id);
   });
+
+  it('drops a photo and its credit when the photo is not on this device', async () => {
+    const credit = { author: 'Jo Cook', license: 'CC BY 4.0', source: 'https://photos.test/p1' };
+    const away = { ...curry, id: 'mine.away-1', source: 'mine', image: 'local:gone', imageCredit: credit };
+    const here = { ...curry, id: 'mine.here-1', source: 'mine', image: 'local:kept', imageCredit: credit };
+    await createRecipeStore(undefined, 'mine').saveImage(here.id, 'local:kept', new Blob(['x']));
+    await restoreBackup({ data: { ...EMPTY_USER_DATA, books: [OLD] }, recipes: [away, here] });
+    const byId = useLibrary.getState().byId;
+    expect(byId.get(away.id)?.image).toBeUndefined();
+    expect(byId.get(away.id)?.imageCredit).toBeUndefined();
+    expect(byId.get(here.id)).toMatchObject({ image: 'local:kept', imageCredit: credit });
+  });
+
+  it('restores many recipes at once', async () => {
+    const many = Array.from({ length: 40 }, (_, i) => ({ ...curry, id: `mine.dish-${i}`, source: 'mine' }));
+    const spy = vi.spyOn(useLibrary.getState(), 'saveOwn');
+    await restoreBackup({ data: { ...EMPTY_USER_DATA, books: [OLD] }, recipes: many });
+    expect(ids().filter((id) => id.startsWith('mine.'))).toHaveLength(40);
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
