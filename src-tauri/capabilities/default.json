@@ -9,32 +9,7 @@
     "opener:default",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "https://*" }, { "url": "https://*:*" }],
-      "deny": [
-        { "url": "https://localhost" },
-        { "url": "https://localhost:*" },
-        { "url": "https://*.localhost" },
-        { "url": "https://*.local" },
-        { "url": "https://*.lan" },
-        { "url": "https://*.internal" },
-        { "url": "https://127.*" },
-        { "url": "https://127.*:*" },
-        { "url": "https://10.*" },
-        { "url": "https://10.*:*" },
-        { "url": "https://192.168.*" },
-        { "url": "https://192.168.*:*" },
-        { "url": "https://169.254.*" },
-        { "url": "https://169.254.*:*" },
-        { "url": "https://172.16.*" },
-        { "url": "https://172.17.*" },
-        { "url": "https://172.18.*" },
-        { "url": "https://172.19.*" },
-        { "url": "https://172.2*" },
-        { "url": "https://172.30.*" },
-        { "url": "https://172.31.*" },
-        { "url": "https://[::1]" },
-        { "url": "https://[::1]:*" }
-      ]
+      "allow": [{ "url": "https://api.openverse.org/*" }, { "url": "https://generativelanguage.googleapis.com/*" }, { "url": "https://api.anthropic.com/*" }]
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { emptyDraft, type RecipeDraft } from '../domain/draft';
 import { parseIngredientLine } from '../domain/ingredientLine';
 import { COURSES } from '../domain/schema';
-import { httpFetch } from '../platform/http';
+import { pageFetch } from '../platform/http';
 
 /** As much of a page as is worth handing to an AI. */
 export const PAGE_TEXT_LIMIT = 30_000;
@@ -100,18 +100,22 @@ function pageText(doc: Document): string {
 }
 
 /**
- * Hosts on this device or the local network. A link someone pastes must not
- * reach a router or another app's local server; the HTTP plugin's scope
- * (src-tauri/capabilities/default.json) refuses the same ranges natively.
+ * Hosts on this device or the local network, by name. Inside the app the page
+ * is fetched by a native command that checks the address each name really
+ * resolves to (src-tauri/src/page.rs); this catches the obvious cases first,
+ * and is the only check in a plain browser.
  */
 export function isPrivateHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.internal')) return true;
-  if (host.includes(':')) return host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80') || host.startsWith('::ffff:');
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
+  if (host === 'localhost' || /\.(localhost|local|lan|internal|home|arpa)$/.test(host)) return true;
+  if (host.includes(':')) {
+    // Every IPv6 literal that is not plainly a global unicast address is refused.
+    return !/^[23][0-9a-f]{0,3}:/.test(host) || /^2001:0?db8:/.test(host);
+  }
   const ip = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host)?.slice(1).map(Number);
-  if (!ip) return false;
+  if (!ip) return /^\d+$/.test(host) || /^0x/i.test(host);
   const [a, b] = ip as [number, number];
-  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
 }
 
 /** Fetch a recipe page and read what it says: structured recipe data when the site has it, its text either way. */
@@ -126,7 +130,7 @@ export async function readRecipePage(address: string, deps: { fetch?: typeof fet
 
   let html: string;
   try {
-    const response = await (deps.fetch ?? httpFetch)(url.href, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const response = await (deps.fetch ?? pageFetch)(url.href, { signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!response.ok) return { ok: false, error: 'Could not open that page.' };
     html = await response.text();
   } catch {
