@@ -130,6 +130,13 @@ describe('readRecipePage', () => {
     expect(await readRecipePage('hello', { fetch: serve('') })).toEqual({ ok: false, error: 'That is not a web address.' });
   });
 
+  it('will not open addresses on this device or the local network', async () => {
+    for (const address of ['https://localhost/x', 'http://127.0.0.1:8080/', 'https://192.168.1.1/', 'https://10.0.0.2/', 'https://172.16.4.4/', 'https://169.254.169.254/latest', 'https://[::1]/', 'https://router.local/', 'https://printer.lan/']) {
+      expect(await readRecipePage(address, { fetch: serve('') })).toEqual({ ok: false, error: 'That is not a web address.' });
+    }
+    expect((await readRecipePage('https://172.32.0.1.example.com/', { fetch: serve(page(recipe)) })).ok).toBe(true);
+  });
+
   it('adds https to a bare address', async () => {
     let asked = '';
     const fetcher = (async (input: RequestInfo | URL) => {

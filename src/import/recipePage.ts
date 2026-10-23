@@ -99,6 +99,21 @@ function pageText(doc: Document): string {
   return (title ? `${title}\n\n${body}` : body).slice(0, PAGE_TEXT_LIMIT);
 }
 
+/**
+ * Hosts on this device or the local network. A link someone pastes must not
+ * reach a router or another app's local server; the HTTP plugin's scope
+ * (src-tauri/capabilities/default.json) refuses the same ranges natively.
+ */
+export function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.lan') || host.endsWith('.internal')) return true;
+  if (host.includes(':')) return host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80') || host.startsWith('::ffff:');
+  const ip = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host)?.slice(1).map(Number);
+  if (!ip) return false;
+  const [a, b] = ip as [number, number];
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+}
+
 /** Fetch a recipe page and read what it says: structured recipe data when the site has it, its text either way. */
 export async function readRecipePage(address: string, deps: { fetch?: typeof fetch } = {}): Promise<PageResult> {
   let url: URL;
@@ -107,7 +122,7 @@ export async function readRecipePage(address: string, deps: { fetch?: typeof fet
   } catch {
     return { ok: false, error: 'That is not a web address.' };
   }
-  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !url.hostname.includes('.')) return { ok: false, error: 'That is not a web address.' };
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !/[.:]/.test(url.hostname) || isPrivateHost(url.hostname)) return { ok: false, error: 'That is not a web address.' };
 
   let html: string;
   try {
