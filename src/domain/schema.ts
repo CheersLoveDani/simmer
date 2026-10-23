@@ -154,6 +154,8 @@ export const recipeSchema = z.object({
     .object({ author: z.string(), license: z.string(), licenseUrl: webUrl.optional().catch(undefined), source: webUrl })
     .optional()
     .catch(undefined),
+  /** The web page a recipe was imported from. */
+  sourceUrl: webUrl.optional().catch(undefined),
   author: z.string().default('Simmer'),
   /** Which library the recipe lives in: `simmer`, `mine`, or a recipe book's key. Set on the device, not by feeds. */
   source: z.string().default('simmer'),

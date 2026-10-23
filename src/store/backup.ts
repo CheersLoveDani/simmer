@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AISLES } from '../domain/schema';
 import { MEALS } from '../domain/planner';
+import { MINE, SIMMER } from './recipeStore';
 
 export const settingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).catch('system'),
@@ -34,13 +35,36 @@ const shoppingItemSchema = z.object({
   sources: z.array(z.object({ recipeId: z.string(), title: z.string() })).default([]),
 });
 
+function isHttps(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** Another published recipe feed someone has added. */
 export const bookSchema = z.object({
-  key: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  // A book's key names its library, so it must never be one the app already uses.
+  key: z
+    .string()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+    .refine((key) => key !== SIMMER && key !== MINE),
   name: z.string(),
-  mirrors: z.array(z.string().url()).min(1),
+  mirrors: z.array(z.string().refine(isHttps)).min(1),
 });
 export type Book = z.infer<typeof bookSchema>;
+
+/** A damaged or hostile book is dropped on its own; the rest are kept. */
+const booksSchema = z
+  .array(z.unknown())
+  .catch([])
+  .transform((items) =>
+    items.flatMap((item) => {
+      const parsed = bookSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  );
 
 export const userDataSchema = z.object({
   favourites: z.array(z.string()).default([]),
@@ -63,7 +87,7 @@ export const userDataSchema = z.object({
     )
     .default([]),
   servings: z.record(z.string(), z.number().positive()).default({}),
-  books: z.array(bookSchema).catch([]).default([]),
+  books: booksSchema.default([]),
   settings: settingsSchema.default(DEFAULT_SETTINGS),
 });
 export type UserData = z.infer<typeof userDataSchema>;

@@ -166,3 +166,23 @@ describe('backup', () => {
     expect(parsed).toMatchObject({ ok: true, data: { settings: { theme: 'system', units: 'us' } } });
   });
 });
+
+describe('recipe books in backups', () => {
+  const book = { key: 'alice-family-recipes', name: 'family recipes', mirrors: ['https://alice.github.io/family-recipes/v1/'] };
+  const restore = (books: unknown[]) => {
+    const result = parseBackup(JSON.stringify({ app: 'simmer', version: 1, exportedAt: '', data: { books } }));
+    return result.ok ? result.data.books : null;
+  };
+
+  it('keeps a valid book', () => {
+    expect(restore([book])).toEqual([book]);
+  });
+
+  it('drops books that would stand in for the main library or your own recipes', () => {
+    expect(restore([{ ...book, key: 'simmer' }, { ...book, key: 'mine' }, book])).toEqual([book]);
+  });
+
+  it('drops books that are not fetched over https', () => {
+    expect(restore([{ ...book, mirrors: ['http://alice.test/v1/'] }, { ...book, mirrors: ['javascript:alert(1)'] }])).toEqual([]);
+  });
+});

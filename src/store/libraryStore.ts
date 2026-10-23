@@ -6,7 +6,7 @@ import { describeSync, seedIfEmpty, syncRecipes, type SyncResult } from '../sync
 import { feedMirrors } from '../sync/config';
 import { kvGet, kvSet } from './db';
 import { useUser } from './userStore';
-import { allRecipes, createRecipeStore } from './recipeStore';
+import { MINE, SIMMER, allRecipes, createRecipeStore } from './recipeStore';
 
 export const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const LAST_SYNC_KEY = 'feed.lastSyncedAt';
@@ -84,7 +84,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
       // Books sync after the main library, and a broken one only marks itself.
       const bookStatus: LibraryState['bookStatus'] = {};
       let booksChanged = false;
-      for (const book of useUser.getState().books) {
+      for (const book of useUser.getState().books.filter((b) => b.key !== SIMMER && b.key !== MINE)) {
         const outcome = await syncRecipes({ fetch: fetcher, store: createRecipeStore(undefined, book.key), mirrors: book.mirrors, prefix: book.key });
         bookStatus[book.key] = outcome.status === 'failed' ? 'failed' : 'ok';
         if (outcome.status === 'updated') booksChanged = true;
@@ -114,6 +114,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   dismissNotice: () => set({ notice: null }),
 
   async removeBook(key) {
+    if (key === SIMMER || key === MINE) return;
     await createRecipeStore(undefined, key).clear();
     const { [key]: _gone, ...bookStatus } = get().bookStatus;
     set({ bookStatus, ...view(await allRecipes(), [...get().themes.values()]) });
