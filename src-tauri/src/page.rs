@@ -33,14 +33,13 @@ fn is_public_v6(ip: Ipv6Addr) -> bool {
         return is_public_v4(v4);
     }
     let s = ip.segments();
-    !(ip.is_unspecified()
-        || ip.is_loopback()
-        || ip.is_multicast()
-        || (s[0] & 0xfe00) == 0xfc00 // unique local
-        || (s[0] & 0xffc0) == 0xfe80 // link local
-        || (s[0] == 0x2001 && s[1] == 0x0db8) // documentation
-        || (s[0] == 0x0064 && s[1] == 0xff9b) // NAT64, which reaches IPv4 addresses
-        || s[..6].iter().all(|&x| x == 0)) // IPv4-compatible
+    // Only global unicast (2000::/3), and none of the forms in it that carry an
+    // IPv4 address through to somewhere else or are set aside for examples.
+    (s[0] & 0xe000) == 0x2000
+        && !(s[0] == 0x2001 && s[1] == 0x0000) // Teredo
+        && !(s[0] == 0x2001 && s[1] == 0x0db8) // documentation
+        && s[0] != 0x2002 // 6to4
+        && (s[0] & 0xfff0) != 0x3ff0 // documentation (3fff::/20)
 }
 
 /// Whether an address is out on the internet rather than on this device or the local network.
@@ -80,6 +79,8 @@ pub async fn fetch_page(url: String) -> Result<String, String> {
         let address = checked_address(&url).await?;
         let mut client = reqwest::Client::builder()
             .redirect(Policy::none())
+            // A proxy would make its own connection and skip the address check above.
+            .no_proxy()
             .timeout(TIMEOUT)
             .user_agent("Mozilla/5.0 (compatible; Simmer recipe import)");
         if let Some(url::Host::Domain(name)) = url.host() {
@@ -133,7 +134,8 @@ mod tests {
         for address in [
             "127.0.0.1", "0.0.0.0", "0.1.2.3", "10.0.0.2", "172.16.4.4", "172.31.255.255", "192.168.1.1", "169.254.169.254",
             "100.64.0.1", "255.255.255.255", "224.0.0.1", "::1", "::", "fd00::1", "fc00::1", "fe80::1", "::ffff:127.0.0.1",
-            "::ffff:192.168.0.1", "::127.0.0.1", "64:ff9b::7f00:1",
+            "::ffff:192.168.0.1", "::127.0.0.1", "64:ff9b::7f00:1", "64:ff9b:1::7f00:1", "2002:7f00:1::1", "2001:0:4136:e378::1",
+            "::ffff:0:7f00:1", "100::1", "3fff::1",
         ] {
             assert!(!public(address), "{address} should be refused");
         }
