@@ -31,9 +31,13 @@ interface LibraryState {
   dismissNotice(): void;
   /** Forget a recipe book's recipes (the book itself lives in the user store). */
   removeBook(key: string): Promise<void>;
+  /** Add or replace one of your own recipes, with the photo chosen for it. */
+  saveOwn(recipe: Recipe, photo?: Blob): Promise<void>;
+  deleteOwn(id: string): Promise<void>;
 }
 
 const store = createRecipeStore();
+const own = createRecipeStore(undefined, MINE);
 
 function view(recipes: Recipe[], themeList: Theme[]) {
   const sorted = [...recipes].sort((a, b) => a.title.localeCompare(b.title));
@@ -112,6 +116,17 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   },
 
   dismissNotice: () => set({ notice: null }),
+
+  async saveOwn(recipe, photo) {
+    await own.apply({ put: [recipe], remove: [], revision: null });
+    if (photo && recipe.image) await own.saveImage(recipe.id, recipe.image, photo);
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
+
+  async deleteOwn(id) {
+    await own.apply({ put: [], remove: [id], revision: null });
+    set(view(await allRecipes(), [...get().themes.values()]));
+  },
 
   async removeBook(key) {
     if (key === SIMMER || key === MINE) return;

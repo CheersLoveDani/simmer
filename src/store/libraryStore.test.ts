@@ -39,6 +39,7 @@ beforeEach(async () => {
   await useUser.persist.rehydrate();
   useUser.getState().replaceAll(EMPTY_USER_DATA);
   await createRecipeStore(undefined, BOOK.key).clear();
+  await createRecipeStore(undefined, 'mine').clear();
   serve({ [MIRRORS[0]!]: [] });
   await useLibrary.getState().sync();
 });
@@ -74,5 +75,33 @@ describe('recipe books', () => {
     expect(useUser.getState().addBook(BOOK)).toBe(true);
     expect(useUser.getState().addBook(BOOK)).toBe(false);
     expect(useUser.getState().books).toHaveLength(1);
+  });
+});
+
+describe('your own recipes', () => {
+  const own = { ...curry, id: 'mine.curry-ab12', source: 'mine', image: 'local:abc' };
+
+  it('saves a recipe with its photo and survives a sync', async () => {
+    const photo = new Blob(['x'], { type: 'image/webp' });
+    await useLibrary.getState().saveOwn(own, photo);
+    expect(ids()).toContain(own.id);
+    expect(await createRecipeStore(undefined, 'mine').image(own.id, 'local:abc')).not.toBeNull();
+
+    serve({ [MIRRORS[0]!]: [pasta] });
+    await useLibrary.getState().sync();
+    expect(ids()).toEqual([pasta.id, own.id].sort());
+  });
+
+  it('deletes a recipe', async () => {
+    await useLibrary.getState().saveOwn(own);
+    await useLibrary.getState().deleteOwn(own.id);
+    expect(ids()).not.toContain(own.id);
+  });
+
+  it('only deletes your own recipes', async () => {
+    serve({ [MIRRORS[0]!]: [pasta] });
+    await useLibrary.getState().sync();
+    await useLibrary.getState().deleteOwn(pasta.id);
+    expect(ids()).toContain(pasta.id);
   });
 });
