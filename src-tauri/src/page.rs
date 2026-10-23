@@ -68,6 +68,29 @@ async fn checked_address(url: &Url) -> Result<SocketAddr, String> {
     }
 }
 
+/// The `charset=` value in a Content-Type header or a `<meta>` tag.
+fn charset_after(text: &str) -> Option<String> {
+    let at = text.to_ascii_lowercase().find("charset=")? + "charset=".len();
+    let label: String = text[at..]
+        .trim_start_matches(['"', '\''])
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))
+        .collect();
+    (!label.is_empty()).then_some(label)
+}
+
+/// Turn a page's bytes into text in the character set it says it uses:
+/// a byte order mark first, then the Content-Type header, then a `<meta>` near the top, else UTF-8.
+pub fn decode(body: &[u8], content_type: Option<&str>) -> String {
+    let head = String::from_utf8_lossy(&body[..body.len().min(4096)]);
+    let label = content_type.and_then(charset_after).or_else(|| charset_after(&head));
+    let encoding = label
+        .and_then(|label| encoding_rs::Encoding::for_label(label.as_bytes()))
+        .unwrap_or(encoding_rs::UTF_8);
+    let (text, _, _) = encoding.decode(body);
+    text.into_owned()
+}
+
 /// Fetch a web page's HTML for recipe import.
 #[tauri::command]
 pub async fn fetch_page(url: String) -> Result<String, String> {
@@ -101,6 +124,11 @@ pub async fn fetch_page(url: String) -> Result<String, String> {
         if !response.status().is_success() {
             return Err(format!("{} from the page", response.status()));
         }
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
         let mut body = Vec::new();
         while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
             body.extend_from_slice(&chunk);
@@ -109,7 +137,7 @@ pub async fn fetch_page(url: String) -> Result<String, String> {
                 break;
             }
         }
-        return Ok(String::from_utf8_lossy(&body).into_owned());
+        return Ok(decode(&body, content_type.as_deref()));
     }
     Err("too many redirects".into())
 }
@@ -147,5 +175,20 @@ mod tests {
             assert_eq!(fetch_page(address.into()).await, Err("that address is not on the public internet".into()), "{address}");
         }
         assert_eq!(fetch_page("file:///etc/passwd".into()).await, Err("not a web address".into()));
+    }
+
+    #[test]
+    fn pages_are_read_in_their_own_character_set() {
+        // "Crème brûlée" in windows-1252.
+        let latin: &[u8] = b"<html><body>Cr\xe8me br\xfbl\xe9e</body></html>";
+        assert!(decode(latin, Some("text/html; charset=windows-1252")).contains("Crème brûlée"));
+        let declared: &[u8] = b"<html><head><meta charset=\"iso-8859-1\"></head><body>Cr\xe8me</body></html>";
+        assert!(decode(declared, Some("text/html")).contains("Crème"));
+        let old_style: &[u8] = b"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=windows-1252\">Cr\xe8me";
+        assert!(decode(old_style, None).contains("Crème"));
+        assert!(decode("Crème brûlée".as_bytes(), None).contains("Crème brûlée"));
+        // A byte order mark wins over what the header claims.
+        let marked = [b"\xef\xbb\xbf".as_slice(), "Crème".as_bytes()].concat();
+        assert!(decode(&marked, Some("text/html; charset=windows-1252")).starts_with("Crème"));
     }
 }
