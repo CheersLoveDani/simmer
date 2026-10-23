@@ -140,7 +140,9 @@ export function RecipeEditor({ initial, recipe, photo: offeredPhoto, draftKey }:
     ? 'Give the recipe a title.'
     : full.ingredients.every((g) => g.items.length === 0) || full.steps.every((s) => !s.text.trim())
       ? 'Add at least one ingredient and one step.'
-      : null;
+      : ready
+        ? null
+        : 'Something in the recipe needs fixing before it can be saved.';
   const last = step === STEPS.length - 1;
 
   return (

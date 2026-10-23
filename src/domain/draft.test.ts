@@ -44,6 +44,18 @@ describe('buildRecipe', () => {
     expect(recipe.tips).toEqual(['Use a lid.']);
   });
 
+  it('treats an impossible quantity as no quantity rather than refusing the recipe', () => {
+    const odd = { ...hotpot, ingredients: [{ section: null, items: [parseIngredientLine('0 g salt'), parseIngredientLine('1/0 cups flour'), { ...parseIngredientLine('2 eggs'), qtyMax: 1 }] }] };
+    const recipe = buildRecipe(odd, {})!;
+    expect(recipe).not.toBeNull();
+    expect(recipe.ingredients[0]!.items.map((i) => [i.qty, i.qtyMax])).toEqual([[null, undefined], [null, undefined], [2, undefined]]);
+  });
+
+  it('does not let a bad timer stop the recipe saving', () => {
+    const recipe = buildRecipe({ ...hotpot, steps: [{ text: 'Bake.', timer: { minutes: 0, label: '' } }] }, {})!;
+    expect(recipe.steps[0]!.timer).toBeUndefined();
+  });
+
   it('keeps the id and creation date when editing', () => {
     const first = buildRecipe(hotpot, { now: new Date('2026-10-01T00:00:00Z') })!;
     const again = buildRecipe({ ...draftFromRecipe(first), title: 'Nan’s lamb hotpot' }, { id: first.id, created: first.created })!;

@@ -112,7 +112,19 @@ export function buildRecipe(draft: RecipeDraft, options: BuildOptions): Recipe |
       section: filled(group.section ?? undefined) ? group.section!.trim() : null,
       items: group.items
         .filter((item) => filled(item.item))
-        .map(({ key, ...item }) => ({ ...item, item: item.item.trim(), key: key || slug(item.item) || 'ingredient' })),
+        .map(({ key, qty, qtyMax, unit, ...item }) => {
+          // A quantity the form could not make sense of becomes "no quantity" rather than blocking the save.
+          const amount = qty !== null && Number.isFinite(qty) && qty > 0 ? qty : null;
+          const upTo = amount !== null && qtyMax !== undefined && Number.isFinite(qtyMax) && qtyMax > amount ? qtyMax : undefined;
+          return {
+            ...item,
+            qty: amount,
+            ...(upTo !== undefined ? { qtyMax: upTo } : {}),
+            unit: unit?.trim() || null,
+            item: item.item.trim(),
+            key: key || slug(item.item) || 'ingredient',
+          };
+        }),
     }))
     .filter((group) => group.items.length > 0);
   const time = { prep: minutes(draft.time.prep), cook: minutes(draft.time.cook), rest: minutes(draft.time.rest) };
@@ -130,8 +142,16 @@ export function buildRecipe(draft: RecipeDraft, options: BuildOptions): Recipe |
     serves: Math.max(1, Math.round(draft.serves) || 1),
     time: { ...time, total: time.prep + time.cook + time.rest },
     ingredients,
-    prep: draft.prep.filter((p) => filled(p.text)).map((p) => ({ ...p, text: p.text.trim() })),
-    steps: draft.steps.filter((s) => filled(s.text)).map((s) => ({ ...s, text: s.text.trim() })),
+    prep: draft.prep
+      .filter((p) => filled(p.text))
+      .map(({ during, ...p }) => ({ ...p, text: p.text.trim(), ...(during !== undefined && Number.isInteger(during) && during > 0 ? { during } : {}) })),
+    steps: draft.steps
+      .filter((s) => filled(s.text))
+      .map(({ timer, ...s }, i) => ({
+        ...s,
+        text: s.text.trim(),
+        ...(timer && Number.isFinite(timer.minutes) && timer.minutes > 0 ? { timer: { minutes: timer.minutes, label: timer.label.trim() || `Step ${i + 1}` } } : {}),
+      })),
     equipment: draft.equipment.map((e) => e.trim()).filter(Boolean),
     tips: draft.tips.map((t) => t.trim()).filter(Boolean),
     substitutions: [],

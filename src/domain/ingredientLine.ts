@@ -29,7 +29,7 @@ add('piece', 'pieces');
 const VULGAR: Record<string, number> = { '½': 1 / 2, '¼': 1 / 4, '¾': 3 / 4, '⅓': 1 / 3, '⅔': 2 / 3, '⅛': 1 / 8 };
 
 // One number: "1", "1.5", "1/2", "½", "1½" or "1 1/2".
-const NUMBER = String.raw`(?:\d+(?:[.,]\d+)?(?:\s*[½¼¾⅓⅔⅛]|\s+\d+\/\d+)?|\d+\/\d+|[½¼¾⅓⅔⅛])`;
+const NUMBER = String.raw`(?:\d+\/\d+|\d+(?:[.,]\d+)?(?:\s*[½¼¾⅓⅔⅛]|\s+\d+\/\d+)?|[½¼¾⅓⅔⅛])`;
 const LEADING = new RegExp(String.raw`^(${NUMBER})(?:\s*(?:-|–|—|to)\s*(${NUMBER}))?\s*`);
 
 function toNumber(text: string): number {
@@ -41,7 +41,7 @@ function toNumber(text: string): number {
       total += a! / b!;
     } else total += Number(part.replace(',', '.'));
   }
-  return Math.round(total * 1000) / 1000;
+  return Number.isFinite(total) ? Math.round(total * 1000) / 1000 : 0;
 }
 
 /** Read a line as people write it ("2 onions, finely sliced") into an ingredient. */
@@ -53,11 +53,22 @@ export function parseIngredientLine(line: string): DraftIngredient {
     ingredient.optional = true;
     rest = rest.replace(/\s*\(optional\)\s*$/i, '');
   }
+  const bracketed = /\s*\(([^()]+)\)\s*$/.exec(rest);
+  if (bracketed) {
+    ingredient.note = bracketed[1]!.trim();
+    rest = rest.slice(0, bracketed.index);
+  }
   const amount = LEADING.exec(rest);
   if (amount) {
     ingredient.qty = toNumber(amount[1]!);
     if (amount[2]) ingredient.qtyMax = toNumber(amount[2]);
     rest = rest.slice(amount[0].length);
+    // "2 x 400 g tins" or "1 (400g) tin": the count is the quantity, the pack size a note.
+    const pack = /^(?:[x×]\s*(\d+(?:[.,]\d+)?\s*[a-z]+)|\((\d+(?:[.,]\d+)?\s*[a-z]+)\))\s+/i.exec(rest);
+    if (pack) {
+      ingredient.note = (pack[1] ?? pack[2])!;
+      rest = rest.slice(pack[0].length);
+    }
     const word = /^([A-Za-z]+)\.?(?:\s+(?:of\s+)?|$)/.exec(rest);
     // Case only matters for the one-letter t (teaspoon) and T (tablespoon).
     const unit = word && (word[1]!.length === 1 ? UNITS[word[1]!] : UNITS[word[1]!.toLowerCase()]);
@@ -93,6 +104,7 @@ export function formatIngredientLine(ingredient: DraftIngredient): string {
   let line = parts.join(' ');
   if (ingredient.prep) line += `, ${ingredient.prep}`;
   if (ingredient.note === 'to taste') line += ' to taste';
+  else if (ingredient.note) line += ` (${ingredient.note})`;
   if (ingredient.optional) line += ' (optional)';
   return line;
 }

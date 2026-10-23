@@ -46,6 +46,18 @@ describe('parseIngredientLine', () => {
     expect(parseIngredientLine('1 egg (optional)')).toMatchObject({ qty: 1, item: 'egg', optional: true });
   });
 
+  it('reads a count of packs with their size', () => {
+    expect(parseIngredientLine('2 x 400 g tins chopped tomatoes')).toMatchObject({ qty: 2, unit: 'can', item: 'chopped tomatoes', note: '400 g' });
+    expect(parseIngredientLine('2 × 400g cans chickpeas, drained')).toMatchObject({ qty: 2, unit: 'can', item: 'chickpeas', prep: 'drained', note: '400g' });
+    expect(parseIngredientLine('1 (400g) tin coconut milk')).toMatchObject({ qty: 1, unit: 'can', item: 'coconut milk', note: '400g' });
+    expect(parseIngredientLine('3 x 150 g fillets salmon')).toMatchObject({ qty: 3, unit: null, item: 'fillets salmon', note: '150 g' });
+  });
+
+  it('keeps a note written in brackets', () => {
+    expect(parseIngredientLine('black pepper (lots)')).toMatchObject({ qty: null, item: 'black pepper', note: 'lots' });
+    expect(parseIngredientLine('2 onions, sliced (red if you have them)')).toMatchObject({ item: 'onions', prep: 'sliced', note: 'red if you have them' });
+  });
+
   it('does not take a word that starts like a unit for one', () => {
     expect(parseIngredientLine('2 large eggs')).toMatchObject({ qty: 2, unit: null, item: 'large eggs' });
     expect(parseIngredientLine('1 lemon')).toMatchObject({ qty: 1, unit: null, item: 'lemon' });
@@ -54,8 +66,14 @@ describe('parseIngredientLine', () => {
 
 describe('formatIngredientLine', () => {
   it('writes back what it read', () => {
-    for (const line of ['200 g spaghetti', '1–2 tbsp olive oil', '½ tsp salt', '2 onions, finely sliced', '1 egg (optional)', 'salt to taste', '3 cloves garlic']) {
+    for (const line of ['200 g spaghetti', '1–2 tbsp olive oil', '½ tsp salt', '2 onions, finely sliced', '1 egg (optional)', 'salt to taste', '3 cloves garlic', 'black pepper (lots)', '2 cans chopped tomatoes (400 g)', '1 egg, beaten (large) (optional)']) {
       expect(formatIngredientLine(parseIngredientLine(line))).toBe(line);
     }
+  });
+});
+
+describe('editing keeps every detail', () => {
+  it('writes back a note the parser did not set itself', () => {
+    expect(formatIngredientLine({ qty: null, unit: null, item: 'black pepper', aisle: 'spices', note: 'lots' })).toBe('black pepper (lots)');
   });
 });
