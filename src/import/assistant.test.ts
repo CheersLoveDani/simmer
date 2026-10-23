@@ -68,6 +68,29 @@ describe('draftRecipe with Gemini', () => {
     expect(asked[0]!.body).toMatchObject({ generationConfig: { responseMimeType: 'application/json' } });
   });
 
+  it('accepts null where a field is simply absent', async () => {
+    const withNulls = {
+      ...hotpot,
+      storage: null,
+      photoQuery: null,
+      steps: [{ text: 'Bake.', timer: null, tip: null }],
+      ingredients: [{ section: null, items: [{ qty: 500, unit: 'g', item: 'lamb neck', aisle: 'meat-fish', prep: null, note: null, optional: null, qtyMax: null }] }],
+    };
+    const { fetcher } = answer(200, geminiReply(JSON.stringify(withNulls)));
+    const result = await draftRecipe({ notes: 'x' }, { apiKey: GEMINI_KEY, fetch: fetcher });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.draft.steps).toEqual([{ text: 'Bake.' }]);
+      expect(result.draft.ingredients[0]!.items[0]).toEqual({ qty: 500, unit: 'g', item: 'lamb neck', aisle: 'meat-fish' });
+      expect(result.draft.ingredients[0]!.section).toBeNull();
+    }
+  });
+
+  it('a reply in the wrong shape is reported as incomplete', async () => {
+    const { fetcher } = answer(200, geminiReply(JSON.stringify({ title: 'Lamb', steps: 'bake it' })));
+    expect(await draftRecipe({ notes: 'x' }, { apiKey: GEMINI_KEY, fetch: fetcher })).toEqual({ ok: false, error: 'The assistant’s answer was incomplete. Try again.' });
+  });
+
   it('a rejected key is reported plainly', async () => {
     const { fetcher } = answer(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } });
     expect(await draftRecipe({ notes: 'x' }, { apiKey: GEMINI_KEY, fetch: fetcher })).toEqual({ ok: false, error: 'That API key was not accepted.' });

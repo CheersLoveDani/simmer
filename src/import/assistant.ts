@@ -65,6 +65,19 @@ function message(input: { notes?: string; pageText?: string; url?: string }): st
   return parts.join('\n\n');
 }
 
+// Fields where null means something; anywhere else a model's null just means "not given".
+const MEANINGFUL_NULLS = new Set(['qty', 'unit', 'section']);
+
+function withoutNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withoutNulls);
+  if (typeof value !== 'object' || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, v]) => v !== null || MEANINGFUL_NULLS.has(key))
+      .map(([key, v]) => [key, withoutNulls(v)]),
+  );
+}
+
 function finish(text: string | undefined, url?: string): DraftResult {
   let json: unknown;
   try {
@@ -72,7 +85,7 @@ function finish(text: string | undefined, url?: string): DraftResult {
   } catch {
     return { ok: false, error: ERRORS.incomplete };
   }
-  const parsed = draftSchema.safeParse(json);
+  const parsed = draftSchema.safeParse(withoutNulls(json));
   if (!parsed.success || !parsed.data.title.trim()) return { ok: false, error: ERRORS.incomplete };
   return { ok: true, draft: url ? { ...parsed.data, sourceUrl: url } : parsed.data };
 }

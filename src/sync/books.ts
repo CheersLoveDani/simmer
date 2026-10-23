@@ -9,15 +9,24 @@ const slug = (text: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
+    .slice(0, 34)
     .replace(/-+$/, '');
+
+/** A readable key that stays unique: `a-b/c` and `a/b-c` read alike but are different books. */
+function keyFor(readable: string, exact: string): string {
+  let hash = 0;
+  for (const char of exact.toLowerCase()) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const tag = hash.toString(36).padStart(5, '0').slice(-5);
+  const base = slug(readable);
+  return base ? `${base}-${tag}` : tag;
+}
 
 function github(owner: string, repo: string): Book | null {
   repo = repo.replace(/\.git$/i, '');
   if (!/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) return null;
   const pages = `https://${owner.toLowerCase()}.github.io/${repo}/v1/`;
   return {
-    key: slug(`${owner}-${repo}`),
+    key: keyFor(`${owner}-${repo}`, `${owner}/${repo}`),
     name: repo.replace(/[-_]+/g, ' '),
     mirrors: [pages, `https://raw.githubusercontent.com/${owner}/${repo}/gh-pages/v1/`],
   };
@@ -49,8 +58,7 @@ export function resolveBook(input: string): Book | null {
       book = github(pagesOwner, parts[0]!);
     } else {
       const root = `${url.origin}${url.pathname.replace(/\/?$/, '/')}`;
-      const key = slug(`${url.hostname}${url.pathname}`);
-      book = key ? { key, name: url.hostname, mirrors: [root] } : null;
+      book = { key: keyFor(`${url.hostname}${url.pathname}`, root), name: url.hostname, mirrors: [root] };
     }
   }
   // The main library is already there.
