@@ -24,7 +24,7 @@
     "security": {
       "csp": {
         "default-src": "'self'",
-        "connect-src": "'self' ipc: http://ipc.localhost https://cheerslovedani.github.io https://raw.githubusercontent.com https://api.github.com",
+        "connect-src": "'self' ipc: http://ipc.localhost https:",
         "img-src": "'self' blob: data:",
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:"

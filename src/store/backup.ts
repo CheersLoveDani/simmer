@@ -34,6 +34,14 @@ const shoppingItemSchema = z.object({
   sources: z.array(z.object({ recipeId: z.string(), title: z.string() })).default([]),
 });
 
+/** Another published recipe feed someone has added. */
+export const bookSchema = z.object({
+  key: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  name: z.string(),
+  mirrors: z.array(z.string().url()).min(1),
+});
+export type Book = z.infer<typeof bookSchema>;
+
 export const userDataSchema = z.object({
   favourites: z.array(z.string()).default([]),
   notes: z.record(z.string(), z.string()).default({}),
@@ -55,6 +63,7 @@ export const userDataSchema = z.object({
     )
     .default([]),
   servings: z.record(z.string(), z.number().positive()).default({}),
+  books: z.array(bookSchema).catch([]).default([]),
   settings: settingsSchema.default(DEFAULT_SETTINGS),
 });
 export type UserData = z.infer<typeof userDataSchema>;

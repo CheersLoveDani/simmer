@@ -5,6 +5,8 @@ import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExtern
 import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
 import { useLibrary } from '../store/libraryStore';
+import { resolveBook } from '../sync/books';
+import { fetchManifest } from '../sync/sync';
 import { useUser, userData } from '../store/userStore';
 import { toast, useWide } from '../ui/hooks';
 import { Button, IconButton, Segmented } from '../ui/primitives';
@@ -174,6 +176,8 @@ export function Settings() {
         </Row>
       </section>
 
+      <RecipeBooks />
+
       <section className="setting-group" aria-labelledby="set-data">
         <h2 id="set-data">Your data</h2>
         <p className="muted setting-note">Favourites, notes, plans and lists live only on this device. Back them up to move to another one.</p>
@@ -252,5 +256,76 @@ export function Settings() {
         </Row>
       </section>
     </div>
+  );
+}
+
+/** Other people's published recipe feeds, synced next to the main library. */
+function RecipeBooks() {
+  const books = useUser((s) => s.books);
+  const addBook = useUser((s) => s.addBook);
+  const forgetBook = useUser((s) => s.removeBook);
+  const recipes = useLibrary((s) => s.recipes);
+  const bookStatus = useLibrary((s) => s.bookStatus);
+  const [address, setAddress] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    const book = resolveBook(address);
+    if (!book) {
+      toast('That is not a GitHub repo or feed address');
+      return;
+    }
+    if (books.some((b) => b.key === book.key)) {
+      toast(`${book.name} is already added`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await fetchManifest((input, init) => fetch(input, init), book.mirrors);
+    } catch {
+      toast('No Simmer recipe book found there');
+      setBusy(false);
+      return;
+    }
+    addBook(book);
+    setAddress('');
+    await useLibrary.getState().sync();
+    setBusy(false);
+    toast(`Added ${book.name}`);
+  };
+
+  return (
+    <section className="setting-group" aria-labelledby="set-books">
+      <h2 id="set-books">Recipe books</h2>
+      <p className="muted setting-note">Add a recipe book someone publishes on GitHub. Its recipes appear alongside the rest and update on their own.</p>
+      {books.map((book) => {
+        const count = recipes.filter((r) => r.source === book.key).length;
+        return (
+          <Row key={book.key} title={book.name} hint={bookStatus[book.key] === 'failed' ? 'Could not reach this book.' : `${count} ${count === 1 ? 'recipe' : 'recipes'}`}>
+            <Button
+              onClick={() => {
+                forgetBook(book.key);
+                void useLibrary.getState().removeBook(book.key);
+                toast(`Removed ${book.name}`);
+              }}
+            >
+              Remove
+            </Button>
+          </Row>
+        );
+      })}
+      <form
+        className="inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void add();
+        }}
+      >
+        <input type="text" value={address} placeholder="owner/repo" aria-label="GitHub repo or feed address" autoComplete="off" spellCheck={false} onChange={(event) => setAddress(event.target.value)} />
+        <Button type="submit" variant="primary" icon="plus" disabled={busy || address.trim() === ''}>
+          {busy ? 'Adding…' : 'Add'}
+        </Button>
+      </form>
+    </section>
   );
 }

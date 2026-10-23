@@ -5,6 +5,7 @@ import { themeSearchText } from '../domain/theme';
 import { describeSync, seedIfEmpty, syncRecipes, type SyncResult } from '../sync/sync';
 import { feedMirrors } from '../sync/config';
 import { kvGet, kvSet } from './db';
+import { useUser } from './userStore';
 import { allRecipes, createRecipeStore } from './recipeStore';
 
 export const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -23,9 +24,13 @@ interface LibraryState {
   lastResult: SyncResult | null;
   /** One-line summary of the most recent change, shown as a toast. */
   notice: string | null;
+  /** How each recipe book fared on the last sync, by key. */
+  bookStatus: Record<string, 'ok' | 'failed'>;
   init(): Promise<void>;
   sync(): Promise<SyncResult>;
   dismissNotice(): void;
+  /** Forget a recipe book's recipes (the book itself lives in the user store). */
+  removeBook(key: string): Promise<void>;
 }
 
 const store = createRecipeStore();
@@ -55,6 +60,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   lastSyncedAt: null,
   lastResult: null,
   notice: null,
+  bookStatus: {},
 
   async init() {
     if (get().status === 'ready') return;
@@ -72,8 +78,18 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     if (syncing) return syncing;
     set({ syncState: 'syncing' });
     syncing = (async () => {
-      const result = await syncRecipes({ fetch: (input, init) => fetch(input, init), store, mirrors: feedMirrors() });
+      const fetcher: typeof fetch = (input, init) => fetch(input, init);
+      const result = await syncRecipes({ fetch: fetcher, store, mirrors: feedMirrors() });
       const patch: Partial<LibraryState> = { lastResult: result };
+      // Books sync after the main library, and a broken one only marks itself.
+      const bookStatus: LibraryState['bookStatus'] = {};
+      let booksChanged = false;
+      for (const book of useUser.getState().books) {
+        const outcome = await syncRecipes({ fetch: fetcher, store: createRecipeStore(undefined, book.key), mirrors: book.mirrors, prefix: book.key });
+        bookStatus[book.key] = outcome.status === 'failed' ? 'failed' : 'ok';
+        if (outcome.status === 'updated') booksChanged = true;
+      }
+      patch.bookStatus = bookStatus;
       if (result.status === 'failed') {
         patch.syncState = 'offline';
       } else {
@@ -84,8 +100,8 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
       if (result.status === 'updated') patch.notice = describeSync(result);
       // A theme can be restyled without any recipe changing.
       const themes = result.status === 'failed' ? null : await store.themes();
-      if (result.status === 'updated' || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
-        Object.assign(patch, view(await allRecipes(), themes ?? []));
+      if (result.status === 'updated' || booksChanged || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
+        Object.assign(patch, view(await allRecipes(), themes ?? [...get().themes.values()]));
       }
       set(patch);
       return result;
@@ -96,6 +112,12 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   },
 
   dismissNotice: () => set({ notice: null }),
+
+  async removeBook(key) {
+    await createRecipeStore(undefined, key).clear();
+    const { [key]: _gone, ...bookStatus } = get().bookStatus;
+    set({ bookStatus, ...view(await allRecipes(), [...get().themes.values()]) });
+  },
 }));
 
 export function useRecipe(id: string | undefined): Recipe | undefined {
