@@ -102,8 +102,11 @@ export function parseThemes(raw: unknown): Theme[] {
   });
 }
 
+/** A feed slug, optionally namespaced by the library it belongs to (`mine.soup-x1`, `alice-recipes.stew`). */
+export const RECIPE_ID = /^([a-z0-9]+(-[a-z0-9]+)*\.)?[a-z0-9]+(-[a-z0-9]+)*$/;
+
 export const recipeSchema = z.object({
-  id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  id: z.string().regex(RECIPE_ID),
   hash: z.string().min(1),
   title: z.string().min(1),
   description: z.string(),
@@ -152,6 +155,8 @@ export const recipeSchema = z.object({
     .optional()
     .catch(undefined),
   author: z.string().default('Simmer'),
+  /** Which library the recipe lives in: `simmer`, `mine`, or a recipe book's key. Set on the device, not by feeds. */
+  source: z.string().default('simmer'),
   created: z.string(),
   updated: z.string().optional(),
 });

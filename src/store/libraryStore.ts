@@ -5,7 +5,7 @@ import { themeSearchText } from '../domain/theme';
 import { describeSync, seedIfEmpty, syncRecipes, type SyncResult } from '../sync/sync';
 import { feedMirrors } from '../sync/config';
 import { kvGet, kvSet } from './db';
-import { createRecipeStore } from './recipeStore';
+import { allRecipes, createRecipeStore } from './recipeStore';
 
 export const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const LAST_SYNC_KEY = 'feed.lastSyncedAt';
@@ -63,7 +63,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     } catch {
       // A missing or unreadable snapshot only matters offline on first run.
     }
-    const [recipes, themes, lastSyncedAt] = await Promise.all([store.all(), store.themes(), kvGet<number>(LAST_SYNC_KEY)]);
+    const [recipes, themes, lastSyncedAt] = await Promise.all([allRecipes(), store.themes(), kvGet<number>(LAST_SYNC_KEY)]);
     set({ status: 'ready', ...view(recipes, themes), lastSyncedAt: lastSyncedAt ?? null });
     void get().sync();
   },
@@ -85,7 +85,7 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
       // A theme can be restyled without any recipe changing.
       const themes = result.status === 'failed' ? null : await store.themes();
       if (result.status === 'updated' || (themes && JSON.stringify(themes) !== JSON.stringify([...get().themes.values()]))) {
-        Object.assign(patch, view(await store.all(), themes ?? []));
+        Object.assign(patch, view(await allRecipes(), themes ?? []));
       }
       set(patch);
       return result;
