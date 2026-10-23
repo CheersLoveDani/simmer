@@ -171,4 +171,48 @@ test.describe('your own recipes', () => {
     await page.getByRole('button', { name: 'Ask the assistant to read it' }).click();
     await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Just words');
   });
+
+  test('a large photo is stored at a sensible size', async ({ page }) => {
+    await open(page, '/add/new');
+    // A 3000 by 2000 photo, drawn in the page so no fixture file is needed.
+    const png = await page.evaluate(async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 3000;
+      canvas.height = 2000;
+      const context = canvas.getContext('2d')!;
+      for (let i = 0; i < 400; i++) {
+        context.fillStyle = `hsl(${i * 7}, 70%, 50%)`;
+        context.fillRect((i * 37) % 3000, (i * 53) % 2000, 300, 200);
+      }
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
+      return [...new Uint8Array(await blob.arrayBuffer())];
+    });
+    await page.getByRole('textbox', { name: 'Title' }).fill('Big photo pie');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('textbox', { name: 'Ingredient 1' }).fill('1 pie');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('textbox', { name: 'Step 1' }).fill('Eat it.');
+    await page.getByRole('button', { name: 'Photo' }).click();
+    await page.getByLabel('Photo file').setInputFiles({ name: 'big.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+    await expect(page.locator('.editor-photo img')).toBeVisible();
+    await page.getByRole('button', { name: 'Save recipe' }).click();
+    await expect(page.getByRole('heading', { name: 'Big photo pie' })).toBeVisible();
+
+    const stored = await page.evaluate(
+      () =>
+        new Promise<{ width: number; height: number }>((resolve, reject) => {
+          const request = indexedDB.open('simmer');
+          request.onsuccess = () => {
+            const all = request.result.transaction('images').objectStore('images').getAll();
+            all.onsuccess = async () => {
+              const entry = (all.result as { blob: Blob }[]).at(-1)!;
+              const bitmap = await createImageBitmap(entry.blob);
+              resolve({ width: bitmap.width, height: bitmap.height });
+            };
+            all.onerror = () => reject(all.error);
+          };
+        }),
+    );
+    expect(stored).toEqual({ width: 1600, height: 1067 });
+  });
 });

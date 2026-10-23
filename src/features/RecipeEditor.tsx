@@ -5,6 +5,7 @@ import { formatIngredientLine, parseIngredientLine } from '../domain/ingredientL
 import { AISLES, COURSES, DIETS, DIFFICULTIES, label, type Recipe } from '../domain/schema';
 import { useLibrary } from '../store/libraryStore';
 import { toast, useRecipeImage } from '../ui/hooks';
+import { shrinkPhoto } from '../ui/photo';
 import { Button, Chip, IconButton, Segmented, Stepper } from '../ui/primitives';
 
 export interface EditorPhoto {
@@ -494,7 +495,7 @@ function PhotoStep({
         aria-label="Photo file"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) setPhoto({ blob: file });
+          if (file) void shrinkPhoto(file).then((blob) => setPhoto({ blob }));
           event.target.value = '';
         }}
       />
