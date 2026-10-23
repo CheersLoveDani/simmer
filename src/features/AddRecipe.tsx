@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { draftFromRecipe, emptyDraft, type RecipeDraft } from '../domain/draft';
 import { findPhoto } from '../import/photos';
+import { draftRecipe, getApiKey } from '../import/assistant';
 import { readRecipePage } from '../import/recipePage';
 import { MINE } from '../store/recipeStore';
 import { useRecipe } from '../store/libraryStore';
@@ -53,7 +54,8 @@ function EditorPage({ title, children }: { title: string; children: React.ReactN
 
 /** `/add`: the ways in to a new recipe. */
 export function AddRecipe() {
-  const [found, setFound] = useState<{ draft: RecipeDraft; photo?: EditorPhoto } | null>(null);
+  const [found, setFound] = useState<Found | null>(null);
+  const apiKey = useApiKey();
 
   if (found) {
     return (
@@ -65,25 +67,135 @@ export function AddRecipe() {
   }
   return (
     <EditorPage title="Add a recipe">
-      <FromLink onFound={setFound} />
+      <FromLink onFound={setFound} apiKey={apiKey} />
+      <Describe onFound={setFound} apiKey={apiKey} />
       <div className="add-choices">
-        <Choice icon="sparkle" title="Describe it" lead="A rough list or a few words, and an assistant writes it up." soon />
         <Choice icon="edit" title="Fill it in yourself" lead="A step-by-step form: basics, ingredients, method." to="/add/new" />
       </div>
     </EditorPage>
   );
 }
 
+type Found = { draft: RecipeDraft; photo?: EditorPhoto };
+
+/** The AI key saved in Settings; undefined while it is being read. */
+function useApiKey(): string | null | undefined {
+  const [key, setKey] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void getApiKey().then((value) => live && setKey(value));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return key;
+}
+
+function Describe({ onFound, apiKey }: { onFound(found: Found): void; apiKey: string | null | undefined }) {
+  const [notes, setNotes] = useState('');
+  const [link, setLink] = useState('');
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const write = async () => {
+    if (!apiKey) return;
+    setWorking(true);
+    setError(null);
+    let pageText: string | undefined;
+    let url: string | undefined;
+    if (link.trim()) {
+      const page = await readRecipePage(link);
+      if (!page.ok) {
+        setError(page.error);
+        setWorking(false);
+        return;
+      }
+      // A page with recipe data needs no AI at all.
+      if (page.draft) {
+        onFound(await withPhoto(page.draft));
+        return;
+      }
+      pageText = page.text;
+      url = page.url;
+    }
+    const result = await draftRecipe({ notes, ...(pageText ? { pageText } : {}), ...(url ? { url } : {}) }, { apiKey });
+    if (!result.ok) {
+      setError(result.error);
+      setWorking(false);
+      return;
+    }
+    onFound(await withPhoto(result.draft));
+  };
+
+  return (
+    <section className="add-link" aria-labelledby="add-describe-title">
+      <div className="add-link-head">
+        <span className="add-choice-icon">
+          <Icon name="sparkle" size={24} />
+        </span>
+        <div>
+          <h2 id="add-describe-title" className="add-choice-title">
+            Describe it
+          </h2>
+          <p className="muted">A rough list or a few words, and an assistant writes the whole recipe.</p>
+        </div>
+      </div>
+      {apiKey === null ? (
+        <p>
+          Describing a recipe needs an AI key. A Google Gemini key is free.{' '}
+          <Link to="/settings" className="link-btn">
+            Add a key in Settings
+          </Link>
+        </p>
+      ) : (
+        <form
+          className="add-describe"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (notes.trim() || link.trim()) void write();
+          }}
+        >
+          <textarea rows={4} value={notes} aria-label="Describe the recipe" placeholder="My nan’s lamb hotpot: lamb neck, potatoes, onions, stock, two hours in the oven." onChange={(event) => setNotes(event.target.value)} />
+          <div className="inline-form">
+            <input type="text" inputMode="url" value={link} aria-label="Link (optional)" placeholder="Link (optional)" autoComplete="off" spellCheck={false} onChange={(event) => setLink(event.target.value)} />
+            <Button type="submit" variant="primary" icon="sparkle" disabled={working || apiKey === undefined || (!notes.trim() && !link.trim())}>
+              {working ? 'Writing…' : 'Write it'}
+            </Button>
+          </div>
+        </form>
+      )}
+      <div role="status" className="add-link-status">
+        {working && <p className="muted">Writing your recipe…</p>}
+        {error && <p>{error}</p>}
+      </div>
+    </section>
+  );
+}
+
 /** Find a photo to go with a draft, without holding things up if none turns up. */
-async function withPhoto(draft: RecipeDraft): Promise<{ draft: RecipeDraft; photo?: EditorPhoto }> {
+async function withPhoto(draft: RecipeDraft): Promise<Found> {
   const photo = await findPhoto(draft.photoQuery || draft.title);
   return photo ? { draft, photo: { blob: photo.blob, credit: photo.credit } } : { draft };
 }
 
-function FromLink({ onFound }: { onFound(found: { draft: RecipeDraft; photo?: EditorPhoto }): void }) {
+function FromLink({ onFound, apiKey }: { onFound(found: Found): void; apiKey: string | null | undefined }) {
   const [address, setAddress] = useState('');
-  const [status, setStatus] = useState<'idle' | 'reading' | 'unreadable'>('idle');
+  const [status, setStatus] = useState<'idle' | 'reading' | 'unreadable' | 'writing'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [unread, setUnread] = useState<{ text: string; url: string } | null>(null);
+
+  const askAssistant = async () => {
+    if (!apiKey || !unread) return;
+    setStatus('writing');
+    setError(null);
+    const result = await draftRecipe({ pageText: unread.text, url: unread.url }, { apiKey });
+    if (!result.ok) {
+      setError(result.error);
+      setStatus('unreadable');
+      return;
+    }
+    onFound(await withPhoto(result.draft));
+  };
 
   const importPage = async () => {
     setStatus('reading');
@@ -95,6 +207,7 @@ function FromLink({ onFound }: { onFound(found: { draft: RecipeDraft; photo?: Ed
       return;
     }
     if (!page.draft) {
+      setUnread({ text: page.text, url: page.url });
       setStatus('unreadable');
       return;
     }
@@ -129,10 +242,23 @@ function FromLink({ onFound }: { onFound(found: { draft: RecipeDraft; photo?: Ed
       <div role="status" className="add-link-status">
         {status === 'reading' && <p className="muted">Reading the page…</p>}
         {error && <p>{error}</p>}
+        {status === 'writing' && <p className="muted">Writing your recipe…</p>}
         {status === 'unreadable' && (
-          <p>
-            That page has no recipe Simmer can read. <span className="muted">Add a free AI key in Settings to read pages like this.</span>
-          </p>
+          <div className="add-link-unread">
+            <p>That page has no recipe Simmer can read.</p>
+            {apiKey ? (
+              <Button icon="sparkle" onClick={() => void askAssistant()}>
+                Ask the assistant to read it
+              </Button>
+            ) : (
+              <p className="muted">
+                <Link to="/settings" className="link-btn">
+                  Add a free AI key in Settings
+                </Link>{' '}
+                to read pages like this.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </section>

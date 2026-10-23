@@ -4,6 +4,7 @@ import { copyText, downloadText } from '../platform/device';
 import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExternal } from '../platform/env';
 import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
+import { getApiKey, providerFor, setApiKey } from '../import/assistant';
 import { useLibrary } from '../store/libraryStore';
 import { MINE } from '../store/recipeStore';
 import { resolveBook } from '../sync/books';
@@ -180,6 +181,8 @@ export function Settings() {
 
       <RecipeBooks />
 
+      <Assistant />
+
       <section className="setting-group" aria-labelledby="set-data">
         <h2 id="set-data">Your data</h2>
         <p className="muted setting-note">Favourites, notes, plans, lists and your own recipes live only on this device. Back them up to move to another one. Photos of your recipes are not included.</p>
@@ -328,6 +331,70 @@ function RecipeBooks() {
           {busy ? 'Adding…' : 'Add'}
         </Button>
       </form>
+    </section>
+  );
+}
+
+/** The AI key used to write recipes from a description. Kept on the device, never in backups. */
+function Assistant() {
+  const [saved, setSaved] = useState<string | null | undefined>(undefined);
+  const [draft, setDraft] = useState('');
+  useEffect(() => {
+    void getApiKey().then(setSaved);
+  }, []);
+  const provider = saved ? providerFor(saved) : null;
+
+  const save = async () => {
+    if (!providerFor(draft)) {
+      toast('That does not look like a Gemini or Claude API key');
+      return;
+    }
+    await setApiKey(draft);
+    setSaved(draft.trim());
+    setDraft('');
+    toast('Key saved');
+  };
+
+  return (
+    <section className="setting-group" aria-labelledby="set-assistant">
+      <h2 id="set-assistant">Assistant</h2>
+      <p className="muted setting-note">
+        The assistant writes a recipe from a few words, or from a page Simmer cannot read by itself. It needs your own AI key. Gemini keys are free from Google AI Studio; Google may use free-tier requests to improve its models.
+        Claude keys are paid per use from your Anthropic account. Your key stays on this device and is not part of backups.
+      </p>
+      {saved ? (
+        <Row title={provider === 'claude' ? 'Using Claude' : 'Using Google Gemini'} hint={`Key ending ${saved.slice(-4)}`}>
+          <Button
+            onClick={() => {
+              void setApiKey(null).then(() => setSaved(null));
+              toast('Key removed');
+            }}
+          >
+            Remove key
+          </Button>
+        </Row>
+      ) : (
+        <>
+          <form
+            className="inline-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
+          >
+            <input type="password" value={draft} placeholder="AIza… or sk-ant-…" aria-label="Gemini or Claude API key" autoComplete="off" spellCheck={false} onChange={(event) => setDraft(event.target.value)} />
+            <Button type="submit" variant="primary" disabled={draft.trim() === '' || saved === undefined}>
+              Save key
+            </Button>
+          </form>
+          <div className="page-foot setting-links">
+            <Button onClick={() => void openExternal('https://aistudio.google.com/apikey')}>Get a free Gemini key</Button>
+            <Button variant="plain" onClick={() => void openExternal('https://console.anthropic.com/settings/keys')}>
+              Get a Claude key
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

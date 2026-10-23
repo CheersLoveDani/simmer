@@ -7,7 +7,7 @@ import { httpFetch } from '../platform/http';
 export const PAGE_TEXT_LIMIT = 30_000;
 const TIMEOUT_MS = 20_000;
 
-export type PageResult = { ok: true; draft: RecipeDraft | null; text: string } | { ok: false; error: string };
+export type PageResult = { ok: true; draft: RecipeDraft | null; text: string; url: string } | { ok: false; error: string };
 
 type Node = Record<string, unknown>;
 const isNode = (value: unknown): value is Node => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -143,5 +143,5 @@ export async function readRecipePage(address: string, deps: { fetch?: typeof fet
     }
     if (draft) break;
   }
-  return { ok: true, draft, text: pageText(doc) };
+  return { ok: true, draft, text: pageText(doc), url: url.href };
 }

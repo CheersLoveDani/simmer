@@ -116,4 +116,59 @@ test.describe('your own recipes', () => {
     await expect(page.getByText('That page has no recipe Simmer can read.')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Link to a recipe' })).toHaveValue('recipes.test/plain');
   });
+
+  test('the assistant writes a recipe from a description', async ({ page }) => {
+    await mockWeb(page);
+    const draft = {
+      title: 'Nan’s lamb hotpot',
+      description: 'Slow and golden.',
+      course: 'main',
+      cuisine: 'british',
+      serves: 4,
+      difficulty: 'easy',
+      diet: [],
+      tags: [],
+      time: { prep: 20, cook: 120, rest: 0 },
+      ingredients: [{ section: null, items: [{ qty: 500, unit: 'g', item: 'lamb neck', aisle: 'meat-fish' }] }],
+      prep: [],
+      steps: [{ text: 'Layer and bake.', timer: { minutes: 120, label: 'Hotpot' } }],
+      equipment: [],
+      tips: [],
+      photoQuery: 'lamb hotpot',
+    };
+    let asked = '';
+    await page.route('https://generativelanguage.googleapis.com/**', (route) => {
+      asked = route.request().postData() ?? '';
+      return route.fulfill({ headers: cors, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(draft) }] }, finishReason: 'STOP' }] } });
+    });
+
+    await open(page, '/add');
+    await expect(page.getByText('Describing a recipe needs an AI key. A Google Gemini key is free.')).toBeVisible();
+    await page.getByRole('link', { name: 'Add a key in Settings' }).click();
+    await page.getByLabel('Gemini or Claude API key').fill('AIzaSyTestKey000000000000000000000000');
+    await page.getByRole('button', { name: 'Save key' }).click();
+    await expect(page.getByText('Using Google Gemini')).toBeVisible();
+
+    await open(page, '/add');
+    await page.getByRole('textbox', { name: 'Describe the recipe' }).fill('my nan’s lamb hotpot, lamb neck, potatoes, 2 hours in the oven');
+    await page.getByRole('button', { name: 'Write it' }).click();
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Nan’s lamb hotpot');
+    expect(asked).toContain('2 hours in the oven');
+  });
+
+  test('the assistant can read a page that has no recipe data', async ({ page }) => {
+    await mockWeb(page);
+    await page.route('https://generativelanguage.googleapis.com/**', (route) =>
+      route.fulfill({ headers: cors, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Just words', description: '', course: 'main', cuisine: '', serves: 2, difficulty: 'easy', diet: [], tags: [], time: { prep: 0, cook: 5, rest: 0 }, ingredients: [{ section: null, items: [{ qty: null, unit: null, item: 'words', aisle: 'other' }] }], prep: [], steps: [{ text: 'Read.' }], equipment: [], tips: [] }) }] } }] } }),
+    );
+    await open(page, '/settings');
+    await page.getByLabel('Gemini or Claude API key').fill('AIzaSyTestKey000000000000000000000000');
+    await page.getByRole('button', { name: 'Save key' }).click();
+
+    await open(page, '/add');
+    await page.getByRole('textbox', { name: 'Link to a recipe' }).fill('recipes.test/plain');
+    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Ask the assistant to read it' }).click();
+    await expect(page.getByRole('textbox', { name: 'Title' })).toHaveValue('Just words');
+  });
 });
