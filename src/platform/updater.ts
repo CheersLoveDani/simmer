@@ -170,6 +170,9 @@ function androidDriver(): UpdateDriver {
     unattended: false,
     async find() {
       release = await checkGithubRelease((input, init) => fetch(input, init), APP_VERSION);
+      // A release goes up before its APK is built. Wait for the APK rather than
+      // sending people to the release page; only a shell that can't download falls back to it.
+      if (release && !release.apkUrl && native()?.downloadUpdate) release = null;
       return release;
     },
     download() {
