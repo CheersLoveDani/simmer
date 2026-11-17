@@ -19,7 +19,9 @@ const SORTS: { value: SortKey | 'best'; label: string }[] = [
   { value: 'quickest', label: 'Quickest' },
   { value: 'easiest', label: 'Easiest' },
   { value: 'newest', label: 'Newest' },
+  { value: 'lightest', label: 'Fewest calories' },
 ];
+const KCALS = [400, 600, 800];
 
 const list = (value: string | null) => (value ? value.split(',').filter(Boolean) : []);
 
@@ -80,6 +82,8 @@ function RecipeSearch({ params, set }: { params: URLSearchParams; set(patch: Rec
       diets: list(params.get('diet')),
       difficulties: list(params.get('difficulty')) as Difficulty[],
       maxTime: params.get('time') ? Number(params.get('time')) || null : null,
+      keeps: params.get('prep') === 'freezer' ? 'freezer' : params.get('prep') ? 'prep' : null,
+      maxKcal: params.get('kcal') ? Number(params.get('kcal')) || null : null,
     }),
     [params],
   );
@@ -107,7 +111,7 @@ function RecipeSearch({ params, set }: { params: URLSearchParams; set(patch: Rec
 
   const courseFacets = useMemo(() => facets(recipes, (r) => r.course), [recipes]);
   const cuisineFacets = useMemo(() => facets(recipes, (r) => r.cuisine), [recipes]);
-  const clearFilters = () => set({ course: null, cuisine: null, diet: null, difficulty: null, time: null });
+  const clearFilters = () => set({ course: null, cuisine: null, diet: null, difficulty: null, time: null, prep: null, kcal: null });
 
   return (
     <>
@@ -192,6 +196,21 @@ function RecipeSearch({ params, set }: { params: URLSearchParams; set(patch: Rec
           {TIMES.map((minutes) => (
             <Chip key={minutes} selected={filters.maxTime === minutes} onToggle={() => set({ time: filters.maxTime === minutes ? null : String(minutes) })}>
               {minutes} min or less
+            </Chip>
+          ))}
+        </FilterGroup>
+        <FilterGroup title="Meal prep">
+          <Chip selected={filters.keeps === 'prep'} onToggle={() => set({ prep: filters.keeps === 'prep' ? null : '1' })}>
+            Good for meal prep
+          </Chip>
+          <Chip selected={filters.keeps === 'freezer'} onToggle={() => set({ prep: filters.keeps === 'freezer' ? null : 'freezer' })}>
+            Freezes well
+          </Chip>
+        </FilterGroup>
+        <FilterGroup title="Calories per serving">
+          {KCALS.map((kcal) => (
+            <Chip key={kcal} selected={filters.maxKcal === kcal} onToggle={() => set({ kcal: filters.maxKcal === kcal ? null : String(kcal) })}>
+              Under {kcal} kcal
             </Chip>
           ))}
         </FilterGroup>

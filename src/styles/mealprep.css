@@ -1,0 +1,802 @@
+/* ---- Meal prep and calories --------------------------------------------- */
+
+.cook-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.prep-jump {
+  display: inline-flex;
+  border-radius: var(--r-pill);
+}
+
+.prep-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+  font-weight: 650;
+  background: var(--frost-wash);
+  color: var(--frost);
+  white-space: nowrap;
+}
+
+.prep-badge.is-good {
+  background: var(--ember-wash);
+  color: var(--ember);
+}
+
+.prep-badge.is-fresh {
+  background: var(--flame-wash);
+  color: var(--flame);
+}
+
+.prep-badge.is-compact {
+  padding: 4px 10px;
+}
+
+.mealprep {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scroll-margin-top: 24px;
+}
+
+.mealprep.is-quiet {
+  gap: 10px;
+}
+
+.mealprep-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.mealprep-head + .muted {
+  margin-top: -10px;
+}
+
+.keeps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.keeps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--frost);
+}
+
+.keeps li > span {
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+}
+
+.keeps strong {
+  font-size: var(--t-read);
+}
+
+.keeps-title {
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+}
+
+.keeps li.is-off {
+  color: var(--ink-soft);
+  background: transparent;
+}
+
+.keeps li.is-off strong {
+  font-weight: 560;
+  font-size: var(--t-body);
+  color: var(--ink-soft);
+}
+
+.mealprep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 28px;
+}
+
+.prep-block {
+  display: flex;
+  gap: 12px;
+  line-height: 1.5;
+}
+
+.prep-block-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-s);
+  background: var(--surface-sunk);
+  color: var(--ink-soft);
+}
+
+.reheat-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.reheat-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recipe-main .reheat-block-head h3 {
+  margin: 0;
+}
+
+.reheat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.reheat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.5;
+}
+
+.reheat:first-child {
+  padding-top: 0;
+}
+
+.reheat:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.reheat-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.reheat-time {
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunk);
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+}
+
+.mealprep-safety {
+  font-size: var(--t-small);
+}
+
+.mealprep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  background: var(--ember-wash);
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.notice svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ember);
+}
+
+.notice.is-warning {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+
+.notice.is-warning svg,
+p.is-warning {
+  color: var(--danger);
+}
+
+/* Choosing between eating now and meal prep. */
+.cook-choices {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.cook-choice {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink);
+  text-align: left;
+  transition:
+    box-shadow var(--quick) var(--ease),
+    background var(--quick) var(--ease);
+}
+
+.cook-choice:hover {
+  box-shadow: inset 0 0 0 1px var(--ink-soft);
+}
+
+.cook-choice.is-selected {
+  background: var(--flame-wash);
+  box-shadow: inset 0 0 0 2px var(--flame);
+}
+
+.cook-choice-title {
+  font-weight: 700;
+  font-size: var(--t-read);
+}
+
+.cook-choice-dot {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--line);
+  transition: box-shadow var(--quick) var(--ease);
+}
+
+.cook-choice.is-selected .cook-choice-dot {
+  box-shadow: inset 0 0 0 7px var(--flame);
+}
+
+.cook-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.split {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.split-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+}
+
+.split-row + .split-row {
+  border-top: 1px solid var(--line);
+}
+
+.split-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-s);
+  background: var(--surface-sunk);
+  color: var(--ink-soft);
+}
+
+.split-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--t-small);
+}
+
+.split-title {
+  font-weight: 650;
+  font-size: var(--t-body);
+}
+
+.tend-toggle {
+  margin-top: 4px;
+}
+
+/* How fresh a batch is. */
+.fresh-pill {
+  align-self: flex-start;
+  display: inline-flex;
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+  font-weight: 620;
+  background: var(--surface-sunk);
+  color: var(--ink-soft);
+}
+
+.fresh-pill.is-soon {
+  background: var(--ember-wash);
+  color: var(--ember);
+}
+
+.fresh-pill.is-today {
+  background: var(--flame-wash);
+  color: var(--flame);
+}
+
+.fresh-pill.is-past {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
+.fresh-text {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.fresh-text.is-soon {
+  color: var(--ember);
+}
+
+.fresh-text.is-today {
+  color: var(--flame);
+}
+
+.fresh-text.is-past {
+  color: var(--danger);
+}
+
+.ready .row-head {
+  margin: 0;
+}
+
+.ready .tonight-item {
+  color: var(--ink);
+}
+
+.ready .tonight-item > svg:first-child {
+  color: var(--frost);
+  flex: none;
+}
+
+.ready ul {
+  background: var(--frost-wash);
+}
+
+.ready li + li {
+  border-top-color: color-mix(in srgb, var(--frost) 16%, transparent);
+}
+
+/* The stash page. */
+.prepped {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.stash-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stash-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--t-lead);
+}
+
+.stash-head svg {
+  color: var(--frost);
+}
+
+.stash-head .muted {
+  font-family: var(--font-ui);
+  font-size: var(--t-body);
+}
+
+.stash-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+  overflow: hidden;
+}
+
+.stash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 10px;
+}
+
+.stash-row + .stash-row {
+  border-top: 1px solid var(--line);
+}
+
+.stash-row.is-past {
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+
+.stash-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 4px;
+  border-radius: var(--r-m);
+  color: var(--ink);
+  text-align: left;
+}
+
+.stash-main:hover .stash-title {
+  color: var(--flame);
+}
+
+.stash-main .pick-thumb {
+  width: 64px;
+  height: 64px;
+}
+
+.stash-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stash-title {
+  font-weight: 650;
+  font-size: var(--t-read);
+  transition: color var(--quick) var(--ease);
+}
+
+.stash-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  font-size: var(--t-small);
+}
+
+.stash-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .stash-row {
+    flex-wrap: wrap;
+  }
+
+  .stash-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .stash-main .pick-thumb {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+.eat-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.eat-head .pick-thumb {
+  width: 64px;
+  height: 64px;
+}
+
+.eat-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eat-where {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.item-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.item-move {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--r-m);
+  background: var(--frost-wash);
+}
+
+.item-move-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.item-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.label-preview summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.label-preview pre {
+  margin: 10px 0 0;
+  padding: 14px;
+  border-radius: var(--r-m);
+  background: var(--porcelain);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-family: var(--font-ui);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Cook mode's last card for a meal prep cook. */
+.pack-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pack-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pack-split li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--frost-wash);
+  color: var(--ink);
+  font-size: var(--t-read);
+}
+
+.pack-split svg {
+  color: var(--frost);
+}
+
+.pack-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 22px;
+  list-style: decimal;
+  font-size: var(--t-read);
+  line-height: 1.5;
+}
+
+/* Calories. */
+.nutrition-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nutrition-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recipe-main .nutrition-head h3 {
+  margin: 0;
+}
+
+.nutrition-note {
+  font-size: var(--t-small);
+}
+
+.macro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.macro-bar {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+}
+
+.macro-bar span {
+  border-radius: var(--r-pill);
+}
+
+.macro-protein {
+  background: var(--flame);
+}
+
+.macro-carbs {
+  background: var(--ember);
+}
+
+.macro-fat {
+  background: var(--frost);
+}
+
+.macro-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: var(--t-small);
+  color: var(--ink-soft);
+}
+
+.macro-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.macro-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.day-kcal {
+  font-family: var(--font-ui);
+  font-size: var(--t-small);
+  font-weight: 560;
+}
+
+.plan-entry.is-prepped {
+  background: var(--frost-wash);
+}
+
+.plan-entry-prepped {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--t-small);
+  color: var(--frost);
+  font-weight: 600;
+}
+
+.card-prep {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--frost);
+}
+
+.pick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.editor-prep {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor-reheat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor-reheat-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(130px, 1fr) 80px auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.editor-reheat-row textarea {
+  grid-column: 1 / 4;
+}
+
+.editor-reheat-row .icon-btn {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+@media (max-width: 520px) {
+  .editor-reheat-row {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  .editor-reheat-row input[type='number'] {
+    grid-column: 1 / 3;
+  }
+
+  .editor-reheat-row .icon-btn {
+    grid-column: 3;
+  }
+}
+
+.setting-try {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 8px;
+}
+
+@media print {
+  .mealprep-actions,
+  .stash-actions,
+  .cook-row {
+    display: none;
+  }
+}
+
+/* Calories make card details longer: let them wrap between items, never inside one. */
+.card-meta {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.card-meta > span {
+  white-space: nowrap;
+}

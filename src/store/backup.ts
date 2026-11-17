@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AISLES, parseRecipe, type Recipe } from '../domain/schema';
 import { MEALS } from '../domain/planner';
+import { PLACES, type StashItem } from '../domain/mealprep';
 import { MINE, SIMMER } from './recipeStore';
 
 export const settingsSchema = z.object({
@@ -11,6 +12,14 @@ export const settingsSchema = z.object({
   keepAwake: z.boolean().catch(true),
   timerSound: z.boolean().catch(true),
   autoUpdate: z.boolean().catch(true),
+  /** Show calorie estimates on cards, recipes and the plan. */
+  showCalories: z.boolean().catch(true),
+  /** Ask whether a cook is for now or for meal prep before cook mode starts. */
+  askHowCooking: z.boolean().catch(true),
+  /** Offer to send what was eaten to the Tend food log. */
+  tend: z.boolean().catch(false),
+  /** Nudge, and notify on Android, when prepped food reaches its last day. */
+  useByReminders: z.boolean().catch(true),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -22,6 +31,10 @@ export const DEFAULT_SETTINGS: Settings = {
   keepAwake: true,
   timerSound: true,
   autoUpdate: true,
+  showCalories: true,
+  askHowCooking: true,
+  tend: false,
+  useByReminders: true,
 };
 
 const shoppingItemSchema = z.object({
@@ -42,6 +55,32 @@ function isHttps(value: string): boolean {
     return false;
   }
 }
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const stashItemSchema = z.object({
+  id: z.string(),
+  recipeId: z.string(),
+  title: z.string(),
+  portions: z.number().int().positive(),
+  place: z.enum(PLACES),
+  madeOn: isoDate,
+  useBy: isoDate,
+  defrosted: z.boolean().optional(),
+  kcal: z.number().nonnegative().optional(),
+});
+
+/** A damaged portion record is dropped on its own; the rest are kept. */
+const stashSchema = z
+  .array(z.unknown())
+  .catch([])
+  .transform((items) =>
+    items.flatMap((item): StashItem[] => {
+      const parsed = stashItemSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  )
+  .default([]);
 
 /** Another published recipe feed someone has added. */
 export const bookSchema = z.object({
@@ -83,9 +122,12 @@ export const userDataSchema = z.object({
         meal: z.enum(MEALS),
         recipeId: z.string(),
         servings: z.number().positive(),
+        /** Eaten from portions already cooked, so it needs no shopping. */
+        stashId: z.string().optional(),
       }),
     )
     .default([]),
+  stash: stashSchema,
   servings: z.record(z.string(), z.number().positive()).default({}),
   books: booksSchema.default([]),
   settings: settingsSchema.default(DEFAULT_SETTINGS),

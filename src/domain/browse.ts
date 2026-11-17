@@ -8,11 +8,15 @@ export interface Filters {
   difficulties: Difficulty[];
   /** Total minutes, or null for any. */
   maxTime: number | null;
+  /** Only recipes that keep: 'prep' for good or great for meal prep, 'freezer' for ones that freeze. */
+  keeps?: 'prep' | 'freezer' | null;
+  /** Energy per serving, or null for any. Recipes without an estimate are left out. */
+  maxKcal?: number | null;
 }
 
-export const NO_FILTERS: Filters = { courses: [], cuisines: [], diets: [], difficulties: [], maxTime: null };
+export const NO_FILTERS: Filters = { courses: [], cuisines: [], diets: [], difficulties: [], maxTime: null, keeps: null, maxKcal: null };
 
-export type SortKey = 'title' | 'quickest' | 'newest' | 'easiest';
+export type SortKey = 'title' | 'quickest' | 'newest' | 'easiest' | 'lightest';
 
 export function activeFilterCount(filters: Filters): number {
   return (
@@ -20,7 +24,9 @@ export function activeFilterCount(filters: Filters): number {
     filters.cuisines.length +
     filters.diets.length +
     filters.difficulties.length +
-    (filters.maxTime == null ? 0 : 1)
+    (filters.maxTime == null ? 0 : 1) +
+    (filters.keeps ? 1 : 0) +
+    (filters.maxKcal == null ? 0 : 1)
   );
 }
 
@@ -31,7 +37,10 @@ export function applyFilters(recipes: Recipe[], filters: Filters): Recipe[] {
       (filters.cuisines.length === 0 || filters.cuisines.includes(r.cuisine)) &&
       filters.diets.every((d) => r.diet.includes(d)) &&
       (filters.difficulties.length === 0 || filters.difficulties.includes(r.difficulty)) &&
-      (filters.maxTime == null || r.time.total <= filters.maxTime),
+      (filters.maxTime == null || r.time.total <= filters.maxTime) &&
+      (!filters.keeps ||
+        (filters.keeps === 'freezer' ? (r.mealPrep?.freezerMonths ?? 0) > 0 : r.mealPrep?.rating === 'great' || r.mealPrep?.rating === 'good')) &&
+      (filters.maxKcal == null || (r.nutrition != null && r.nutrition.kcal <= filters.maxKcal)),
   );
 }
 
@@ -47,6 +56,9 @@ export function sortRecipes(recipes: Recipe[], key: SortKey): Recipe[] {
       return sorted.sort((a, b) => a.time.total - b.time.total || byTitle(a, b));
     case 'newest':
       return sorted.sort((a, b) => (b.updated ?? b.created).localeCompare(a.updated ?? a.created) || byTitle(a, b));
+    case 'lightest':
+      // Recipes without an estimate go last rather than counting as zero.
+      return sorted.sort((a, b) => (a.nutrition?.kcal ?? Infinity) - (b.nutrition?.kcal ?? Infinity) || byTitle(a, b));
     case 'easiest':
       return sorted.sort(
         (a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty] || a.time.total - b.time.total || byTitle(a, b),

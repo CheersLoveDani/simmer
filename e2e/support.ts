@@ -97,3 +97,10 @@ export async function openRecipe(page: Page, id = 'brown-butter-miso-pasta'): Pr
 }
 
 export const cards = (page: Page) => page.getByTestId('recipe-card');
+
+/** Go from a recipe page into cook mode, answering "how are you cooking this?" with eating now. */
+export async function startCooking(page: Page): Promise<void> {
+  await page.getByTestId('cook-btn').click();
+  await page.getByTestId('start-cooking').click();
+  await expect(page.getByTestId('cook-mode')).toBeVisible();
+}

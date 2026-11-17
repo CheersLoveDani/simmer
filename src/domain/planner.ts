@@ -8,6 +8,8 @@ export interface PlanEntry {
   meal: Meal;
   recipeId: string;
   servings: number;
+  /** Eaten from portions already cooked (see the stash), so it needs no shopping. */
+  stashId?: string;
 }
 
 export function toISODate(date: Date): string {

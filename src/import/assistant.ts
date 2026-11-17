@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import { draftSchema, type RecipeDraft } from '../domain/draft';
-import { AISLES, COURSES } from '../domain/schema';
+import { AISLES, COURSES, REHEAT_METHODS } from '../domain/schema';
 import { httpFetch } from '../platform/http';
 import { kvDelete, kvGet, kvSet } from '../store/db';
 
@@ -55,6 +55,8 @@ Fields:
 - steps: give a step a timer when it involves waiting (simmering, baking, resting), with minutes and a short label such as "Simmer the sauce".
 - prep: tasks worth doing before starting or while waiting, if any; "during" is the step number (from 1) whose wait suits the task.
 - photoQuery: two or three plain words to search for a photo of the finished dish.
+- nutrition: your honest estimate per serving of kcal, protein, carbs, fat and fibre (grams), worked out from the ingredients. Always give it.
+- mealPrep: how the dish keeps for batch cooking. rating is great (portions, keeps and reheats well), good (fine a day or two ahead) or fresh (best eaten straight away). Follow UK Food Standards Agency advice: cooked leftovers keep 2 days in the fridge (cooked rice 1 day), freeze within 2 hours of cooking, defrost in the fridge and eat within 24 hours, reheat once until steaming hot. fridgeDays and freezerMonths are whole numbers, 0 when it should not be kept or does not freeze well. portion says how to divide and store it; freeze how to freeze it (only when it freezes); reheat lists ways to reheat it, each with method (${REHEAT_METHODS.join(', ')}), from (chilled or frozen), minutes and short instructions. serveFresh lists toppings to keep back and add on the day.
 - Leave tips, equipment, tags and diet empty unless the source supports them.`;
 
 function message(input: { notes?: string; pageText?: string; url?: string }): string {

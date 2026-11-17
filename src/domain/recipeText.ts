@@ -1,3 +1,4 @@
+import { methodLabel } from './mealprep';
 import { prepWhen } from './prep';
 import { displayIngredient, formatMinutes, scaleFactor, type UnitSystem } from './quantity';
 import { fold } from './search';
@@ -21,6 +22,21 @@ export function recipeToText(recipe: Recipe, servings: number, system: UnitSyste
   }
   lines.push('', 'METHOD');
   recipe.steps.forEach((step, i) => lines.push(`${i + 1}. ${step.text}`));
+  const prep = recipe.mealPrep;
+  if (prep) {
+    const keeps = [
+      prep.roomDays ? `${prep.roomDays} days in a tin` : null,
+      prep.fridgeDays > 0 ? `${prep.fridgeDays} ${prep.fridgeDays === 1 ? 'day' : 'days'} in the fridge` : null,
+      prep.freezerMonths > 0 ? `${prep.freezerMonths} ${prep.freezerMonths === 1 ? 'month' : 'months'} in the freezer` : 'does not freeze well',
+    ].filter(Boolean);
+    lines.push('', 'MEAL PREP', `Keeps ${keeps.join(', ')}.`, `Portioning: ${prep.portion}`);
+    if (prep.freeze) lines.push(`Freezing: ${prep.freeze}`);
+    if (prep.defrost) lines.push(`Defrosting: ${prep.defrost}`);
+    for (const reheat of prep.reheat) {
+      lines.push(`Reheat ${reheat.from === 'frozen' ? 'from frozen' : 'from the fridge'}, ${methodLabel(reheat.method).toLowerCase()}: ${reheat.text}`);
+    }
+  }
+  if (recipe.nutrition) lines.push('', `About ${Math.round(recipe.nutrition.kcal)} kcal per serving.`);
   return lines.join('\n');
 }
 

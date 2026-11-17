@@ -12,6 +12,8 @@
   --ember: #c97a12;
   --ember-wash: #fbf0dc;
   --danger: #b3261e;
+  --frost: #2a6f97;
+  --frost-wash: #e3f0f7;
   --plate: #fbfcfb;
   --plate-rim: #2d3436;
   --plate-well: #dde3e6;
@@ -64,6 +66,8 @@
   --ember: #f0b45a;
   --ember-wash: #2b2314;
   --danger: #ff8a80;
+  --frost: #8cc8ec;
+  --frost-wash: #15283a;
   --plate: #eef1f1;
   --plate-rim: #0f141b;
   --plate-well: #cfd6da;
@@ -92,6 +96,8 @@
     --ember: #f0b45a;
     --ember-wash: #2b2314;
     --danger: #ff8a80;
+    --frost: #8cc8ec;
+    --frost-wash: #15283a;
     --plate: #eef1f1;
     --plate-rim: #0f141b;
     --plate-well: #cfd6da;

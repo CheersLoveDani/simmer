@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useDragControls } from 'motion/react';
 import { useBackToClose } from './back';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 import { useKey, useToasts, useWide } from './hooks';
 
@@ -168,7 +169,9 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
     return () => previous?.focus?.();
   }, [open]);
 
-  return (
+  // Rendered at the top of the document, so a page's own stacking (a themed
+  // recipe isolates itself) can never tuck a sheet under the tab bar.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className={`sheet-layer ${wide ? 'is-wide' : ''}`}>
@@ -203,7 +206,8 @@ export function Sheet({ open, title, onClose, children, footer }: SheetProps) {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import * as mealprep from '../domain/mealprep';
 import * as planner from '../domain/planner';
 import type { Recipe } from '../domain/schema';
 import * as shopping from '../domain/shopping';
@@ -36,6 +37,15 @@ interface Actions {
   planRemove(id: string): void;
   planMove(id: string, date: string, meal: planner.Meal): void;
   planSetServings(id: string, servings: number): void;
+
+  /** Put cooked portions away. */
+  stashAdd(items: mealprep.StashItem[]): void;
+  /** Eat or give away portions. */
+  stashTake(id: string, count: number): void;
+  stashSetPortions(id: string, portions: number): void;
+  stashMove(id: string, to: mealprep.Place, count: number, keeps: mealprep.Keeping, today: string): void;
+  stashRemove(id: string): void;
+  stashRestore(items: mealprep.StashItem[]): void;
 
   /** False when a book with that key is already there. */
   addBook(book: Book): boolean;
@@ -126,6 +136,13 @@ export const useUser = create<UserState>()(
       planRemove: (id) => set((s) => ({ plan: planner.removeEntry(s.plan, id) })),
       planMove: (id, date, meal) => set((s) => ({ plan: planner.moveEntry(s.plan, id, date, meal) })),
       planSetServings: (id, servings) => set((s) => ({ plan: planner.setServings(s.plan, id, servings) })),
+
+      stashAdd: (items) => set((s) => ({ stash: mealprep.addToStash(s.stash, items) })),
+      stashTake: (id, count) => set((s) => ({ stash: mealprep.takePortions(s.stash, id, count) })),
+      stashSetPortions: (id, portions) => set((s) => ({ stash: mealprep.setPortions(s.stash, id, portions) })),
+      stashMove: (id, to, count, keeps, today) => set((s) => ({ stash: mealprep.moveItem(s.stash, id, to, count, keeps, today) })),
+      stashRemove: (id) => set((s) => ({ stash: s.stash.filter((item) => item.id !== id) })),
+      stashRestore: (items) => set({ stash: items }),
 
       addBook: (book) => {
         if (get().books.some((b) => b.key === book.key)) return false;

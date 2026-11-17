@@ -19,6 +19,8 @@ import { toast, useWide } from '../ui/hooks';
 import { ThemeArt, ThemeBadge, useRecipeLook } from '../ui/Themed';
 import { Button, Chip, Empty, IconButton, Segmented, Sheet, Stars, Stepper } from '../ui/primitives';
 import { StepTimer } from './timers';
+import { CookChoiceSheet, LogMealSheet, MealPrepSection, RatingBadge } from './mealprep';
+import { formatKcal, macroSplit } from '../domain/nutrition';
 
 export function Recipe() {
   const { id } = useParams();
@@ -65,6 +67,9 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
   const [planOpen, setPlanOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [cookChoice, setCookChoice] = useState<'now' | 'prep' | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
+  const showCalories = user.settings.showCalories;
   const own = recipe.source === MINE;
   const deleteOwn = useLibrary((s) => s.deleteOwn);
 
@@ -223,6 +228,12 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
                 <dt>Difficulty</dt>
                 <dd>{label(recipe.difficulty)}</dd>
               </div>
+              {showCalories && recipe.nutrition && (
+                <div>
+                  <dt>Per serving</dt>
+                  <dd>{formatKcal(recipe.nutrition.kcal)}</dd>
+                </div>
+              )}
               {recipe.yield && (
                 <div>
                   <dt>Makes</dt>
@@ -237,10 +248,23 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
                 </li>
               ))}
             </ul>
-            <Link to={`/recipe/${recipe.id}/cook`} className="btn btn-primary cook-btn no-print">
-              <Icon name="pot" size={20} />
-              Start cooking
-            </Link>
+            <div className="cook-row no-print">
+              {user.settings.askHowCooking ? (
+                <Button variant="primary" className="cook-btn" icon="pot" onClick={() => setCookChoice('now')} data-testid="cook-btn">
+                  Start cooking
+                </Button>
+              ) : (
+                <Link to={`/recipe/${recipe.id}/cook`} className="btn btn-primary cook-btn" data-testid="cook-btn">
+                  <Icon name="pot" size={20} />
+                  Start cooking
+                </Link>
+              )}
+              {recipe.mealPrep && recipe.mealPrep.rating !== 'fresh' && (
+                <button type="button" className="prep-jump" onClick={() => document.getElementById('meal-prep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                  <RatingBadge rating={recipe.mealPrep.rating} compact />
+                </button>
+              )}
+            </div>
           </header>
 
           {recipe.prep.length > 0 && (
@@ -320,9 +344,18 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
             </section>
           )}
 
-          {recipe.nutrition && (
-            <section aria-labelledby="nutrition-title">
-              <h3 id="nutrition-title">Per serving, roughly</h3>
+          <MealPrepSection recipe={recipe} onCookBatch={() => setCookChoice('prep')} />
+
+          {recipe.nutrition && showCalories && (
+            <section aria-labelledby="nutrition-title" className="nutrition-section" data-testid="nutrition">
+              <div className="nutrition-head">
+                <h3 id="nutrition-title">Per serving, roughly</h3>
+                {user.settings.tend && (
+                  <Button icon="check" className="no-print" onClick={() => setLogOpen(true)}>
+                    Log to Tend
+                  </Button>
+                )}
+              </div>
               <dl className="facts nutrition">
                 <div>
                   <dt>Energy</dt>
@@ -337,6 +370,11 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
                   ) : null,
                 )}
               </dl>
+              <MacroBar recipe={recipe} />
+              <p className="muted nutrition-note">
+                {servings !== 1 && `All ${servings} servings come to about ${formatKcal(recipe.nutrition.kcal * servings)}. `}
+                Estimates from typical ingredients; brands vary.
+              </p>
             </section>
           )}
 
@@ -383,6 +421,8 @@ function RecipeView({ recipe }: { recipe: RecipeType }) {
         </div>
       )}
 
+      <CookChoiceSheet recipe={recipe} open={cookChoice !== null} initialMode={cookChoice ?? 'now'} onClose={() => setCookChoice(null)} />
+      <LogMealSheet recipe={recipe} open={logOpen} onClose={() => setLogOpen(false)} />
       <PlanSheet recipe={recipe} servings={servings} open={planOpen} onClose={() => setPlanOpen(false)} />
       <CollectionsSheet recipeId={recipe.id} open={collectionsOpen} onClose={() => setCollectionsOpen(false)} />
       {own && (
@@ -521,6 +561,34 @@ export function Meanwhile({ tasks, title = 'Meanwhile' }: { tasks: string[]; tit
       <ul>
         {tasks.map((text, i) => (
           <li key={i}>{text}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Where the energy comes from, as a thin stacked bar. */
+function MacroBar({ recipe }: { recipe: RecipeType }) {
+  const split = recipe.nutrition ? macroSplit(recipe.nutrition) : null;
+  if (!split) return null;
+  const parts = [
+    { key: 'protein', label: 'Protein', share: split.protein },
+    { key: 'carbs', label: 'Carbs', share: split.carbs },
+    { key: 'fat', label: 'Fat', share: split.fat },
+  ];
+  return (
+    <div className="macro" aria-label={`Energy from ${parts.map((p) => `${p.label.toLowerCase()} ${Math.round(p.share * 100)}%`).join(', ')}`}>
+      <div className="macro-bar" aria-hidden="true">
+        {parts.map((p) => (
+          <span key={p.key} className={`macro-${p.key}`} style={{ flexGrow: p.share }} />
+        ))}
+      </div>
+      <ul className="macro-key" aria-hidden="true">
+        {parts.map((p) => (
+          <li key={p.key}>
+            <span className={`macro-swatch macro-${p.key}`} />
+            {p.label} {Math.round(p.share * 100)}%
+          </li>
         ))}
       </ul>
     </div>

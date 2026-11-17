@@ -25,6 +25,8 @@ export const isDesktopApp = isTauri && !isAndroid;
 
 export const REPO_URL = 'https://github.com/CheersLoveDani/simmer';
 export const RECIPES_REPO_URL = 'https://github.com/CheersLoveDani/simmer-recipes';
+/** Tend, the companion app whose food log Simmer can send meals to. */
+export const TEND_URL = 'https://github.com/CheersLoveDani/tend';
 export const APP_VERSION: string = __APP_VERSION__;
 
 /** Open a link in the system browser rather than inside the app window. */

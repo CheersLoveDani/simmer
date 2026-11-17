@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { toISODate } from '../domain/planner';
+import { keptPortions, packSteps, PLACE_LABELS, type Split } from '../domain/mealprep';
 import { displayIngredient, scaleFactor } from '../domain/quantity';
 import { prepBefore, prepDuring } from '../domain/prep';
 import { ingredientsInStep } from '../domain/recipeText';
@@ -10,11 +10,13 @@ import { setKeepAwake } from '../platform/device';
 import { useRecipe } from '../store/libraryStore';
 import { useSession } from '../store/sessionStore';
 import { useUser } from '../store/userStore';
-import { isTyping, toast, useKey } from '../ui/hooks';
+import { Icon } from '../ui/Icon';
+import { isTyping, useKey } from '../ui/hooks';
 import { Button, IconButton } from '../ui/primitives';
 import { ThemeArt, useRecipeLook } from '../ui/Themed';
 import { Meanwhile } from './Recipe';
 import { StepTimer } from './timers';
+import { FinishSheet, PLACE_ICONS } from './mealprep';
 
 export function CookMode() {
   const { id } = useParams();
@@ -32,16 +34,20 @@ function Cooking({ recipe }: { recipe: Recipe }) {
   const units = useUser((s) => s.settings.units);
   const keepAwake = useUser((s) => s.settings.keepAwake);
   const servings = useUser((s) => s.servings[recipe.id]) ?? recipe.serves;
-  const logCooked = useUser((s) => s.logCooked);
+  const plan = useSession((s) => s.cookPlan[recipe.id]);
+  const [finishing, setFinishing] = useState(false);
   const saved = useSession((s) => s.step[recipe.id]) ?? 0;
   const setStep = useSession((s) => s.setStep);
   const direction = useRef(1);
 
-  const count = recipe.steps.length;
+  // A meal prep cook ends with packing the portions away.
+  const packing = plan?.mode === 'prep' && keptPortions(plan.split) > 0 ? packSteps(recipe, plan.split) : [];
+  const count = recipe.steps.length + (packing.length > 0 ? 1 : 0);
   const index = Math.min(saved, count - 1);
-  const step = recipe.steps[index]!;
+  const isPack = index >= recipe.steps.length;
+  const step = recipe.steps[Math.min(index, recipe.steps.length - 1)]!;
   const factor = scaleFactor(recipe.serves, servings);
-  const used = useMemo(() => ingredientsInStep(step, recipe), [step, recipe]);
+  const used = useMemo(() => (isPack ? [] : ingredientsInStep(step, recipe)), [step, recipe, isPack]);
   const last = index === count - 1;
 
   useEffect(() => {
@@ -57,10 +63,9 @@ function Cooking({ recipe }: { recipe: Recipe }) {
     direction.current = delta;
     setStep(recipe.id, next);
   };
-  const finish = () => {
-    logCooked(recipe.id, toISODate(new Date()));
+  const finish = () => setFinishing(true);
+  const finished = () => {
     setStep(recipe.id, 0);
-    toast('Enjoy. Logged as cooked today.');
     exit();
   };
 
@@ -76,7 +81,7 @@ function Cooking({ recipe }: { recipe: Recipe }) {
     } else if (event.key === 'Escape') {
       exit();
     }
-  });
+  }, !finishing);
 
   return (
     <div className={`cook ${look ? 'is-themed' : ''}`} style={themeStyle} data-testid="cook-mode">
@@ -119,9 +124,15 @@ function Cooking({ recipe }: { recipe: Recipe }) {
               else if (info.offset.x > 70 || info.velocity.x > 500) go(-1);
             }}
           >
-            {index === 0 && <Meanwhile title="Before you start" tasks={prepBefore(recipe).map((t) => t.text)} />}
-            <p className="cook-text">{step.text}</p>
-            {step.tip && <p className="step-tip">{step.tip}</p>}
+            {isPack ? (
+              <PackCard steps={packing} split={plan!.split} />
+            ) : (
+              <>
+                {index === 0 && <Meanwhile title="Before you start" tasks={prepBefore(recipe).map((t) => t.text)} />}
+                <p className="cook-text">{step.text}</p>
+                {step.tip && <p className="step-tip">{step.tip}</p>}
+              </>
+            )}
             {used.length > 0 && (
               <ul className="cook-ingredients" aria-label="Ingredients for this step">
                 {used.map((item) => {
@@ -135,8 +146,8 @@ function Cooking({ recipe }: { recipe: Recipe }) {
                 })}
               </ul>
             )}
-            <Meanwhile tasks={prepDuring(recipe, index).map((t) => t.text)} />
-            {step.timer && <StepTimer large id={`${recipe.id}:${index}`} label={step.timer.label} minutes={step.timer.minutes} recipeId={recipe.id} />}
+            {!isPack && <Meanwhile tasks={prepDuring(recipe, index).map((t) => t.text)} />}
+            {!isPack && step.timer && <StepTimer large id={`${recipe.id}:${index}`} label={step.timer.label} minutes={step.timer.minutes} recipeId={recipe.id} />}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -146,7 +157,7 @@ function Cooking({ recipe }: { recipe: Recipe }) {
           Back
         </Button>
         {last ? (
-          <Button variant="primary" icon="check" onClick={finish}>
+          <Button variant="primary" icon="check" onClick={finish} data-testid="cook-finish">
             Finish
           </Button>
         ) : (
@@ -155,6 +166,36 @@ function Cooking({ recipe }: { recipe: Recipe }) {
           </Button>
         )}
       </footer>
+      <FinishSheet recipe={recipe} open={finishing} onClose={() => setFinishing(false)} onFinished={finished} />
+    </div>
+  );
+}
+
+/** The last card of a meal prep cook: where every portion goes. */
+function PackCard({ steps, split }: { steps: string[]; split: Split }) {
+  const places = (['fridge', 'freezer', 'cupboard'] as const).filter((p) => split[p] > 0);
+  return (
+    <div className="pack-card">
+      <p className="cook-text">Pack it away</p>
+      <ul className="pack-split">
+        {split.now > 0 && (
+          <li>
+            <Icon name="pot" size={20} />
+            <strong className="tabular">{split.now}</strong> to eat now
+          </li>
+        )}
+        {places.map((p) => (
+          <li key={p}>
+            <Icon name={PLACE_ICONS[p]} size={20} />
+            <strong className="tabular">{split[p]}</strong> for the {p === 'cupboard' ? 'tin' : PLACE_LABELS[p].toLowerCase()}
+          </li>
+        ))}
+      </ul>
+      <ol className="pack-steps">
+        {steps.map((text) => (
+          <li key={text}>{text}</li>
+        ))}
+      </ol>
     </div>
   );
 }

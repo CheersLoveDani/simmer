@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { copyText, downloadText } from '../platform/device';
-import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, isAndroid, isTauri, openExternal } from '../platform/env';
+import { canScheduleNotifications, copyText, downloadText } from '../platform/device';
+import { mealAt } from '../domain/tend';
+import { sendToTend } from './mealprep';
+import { APP_VERSION, RECIPES_REPO_URL, REPO_URL, TEND_URL, isAndroid, isTauri, openExternal } from '../platform/env';
 import { appUpdater } from '../platform/updater';
 import { createBackup, parseBackup } from '../store/backup';
 import { getApiKey, providerFor, setApiKey } from '../import/assistant';
@@ -157,6 +159,45 @@ export function Settings() {
         <Row title="Timer sound" hint="A short chime when a timer ends.">
           <Switch label="Timer sound" checked={settings.timerSound} onChange={(timerSound) => update({ timerSound })} />
         </Row>
+        <Row title="Ask how you are cooking" hint="Before cook mode, choose between eating now and meal prep.">
+          <Switch label="Ask how you are cooking" checked={settings.askHowCooking} onChange={(askHowCooking) => update({ askHowCooking })} />
+        </Row>
+        <Row
+          title="Use-by reminders"
+          hint={canScheduleNotifications ? 'A notification on the morning prepped food should be eaten.' : 'A reminder when you open Simmer on the day prepped food should be eaten.'}
+        >
+          <Switch label="Use-by reminders" checked={settings.useByReminders} onChange={(useByReminders) => update({ useByReminders })} />
+        </Row>
+      </section>
+
+      <section className="setting-group" aria-labelledby="set-food">
+        <h2 id="set-food">Calories</h2>
+        <Row title="Show calories" hint="Estimates per serving on cards, recipes and the meal plan.">
+          <Switch label="Show calories" checked={settings.showCalories} onChange={(showCalories) => update({ showCalories })} />
+        </Row>
+        <Row
+          title="Log meals in Tend"
+          hint={
+            <>
+              Send what you eat to <a href={TEND_URL} onClick={(event) => { event.preventDefault(); void openExternal(TEND_URL); }}>Tend</a>&rsquo;s food log, with calories, protein, carbs and fat. Tend opens with the meal filled in for you to check and save.
+            </>
+          }
+        >
+          <Switch label="Log meals in Tend" checked={settings.tend} onChange={(tend) => update({ tend })} />
+        </Row>
+        {settings.tend && (
+          <div className="setting-try">
+            <Button
+              icon="check"
+              onClick={() =>
+                void sendToTend({ name: 'Test from Simmer', portions: 1, nutrition: { kcal: 1 }, meal: mealAt(new Date()), at: Date.now(), ref: 'simmer-test' })
+              }
+            >
+              Try the link
+            </Button>
+            <span className="muted">Tend should open with a 1 kcal test meal. Nothing is saved until you confirm, so you can discard it.</span>
+          </div>
+        )}
       </section>
 
       <section className="setting-group" aria-labelledby="set-recipes">

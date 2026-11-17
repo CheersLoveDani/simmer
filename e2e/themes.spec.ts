@@ -1,4 +1,4 @@
-import { cards, expect, open, seedRecipes, test } from './support';
+import { cards, expect, open, seedRecipes, startCooking, test } from './support';
 
 const ARCADE = {
   id: 'arcade',
@@ -18,9 +18,9 @@ test.describe('themes', () => {
     const recipe = page.getByTestId('recipe-page');
     await expect(recipe.getByTestId('theme-badge')).toHaveText(/Arcade Nights\s*Scout/);
     await expect(recipe.getByTestId('theme-art')).toBeVisible();
-    await expect(recipe.getByRole('link', { name: 'Start cooking' })).toHaveCSS('background-color', 'rgb(10, 143, 76)');
+    await expect(recipe.getByTestId('cook-btn')).toHaveCSS('background-color', 'rgb(10, 143, 76)');
 
-    await recipe.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     await expect(page.getByTestId('cook-mode').getByTestId('theme-art')).toBeVisible();
   });
 

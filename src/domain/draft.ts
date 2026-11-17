@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MOTIFS } from './cover';
-import { AISLES, DIFFICULTIES, parseRecipe, type Recipe } from './schema';
+import { AISLES, DIFFICULTIES, MEAL_PREP_RATINGS, parseRecipe, type Recipe } from './schema';
 
 // A recipe as someone is still writing it: by hand in the editor, or by an
 // assistant. Deliberately loose (no minimum lengths) so a half-finished form
@@ -40,6 +40,31 @@ export const draftSchema = z.object({
   equipment: z.array(z.string()),
   tips: z.array(z.string()),
   storage: z.string().optional(),
+  /** Estimated per serving. */
+  nutrition: z
+    .object({
+      kcal: z.number(),
+      protein: z.number().optional(),
+      carbs: z.number().optional(),
+      fat: z.number().optional(),
+      fibre: z.number().optional(),
+    })
+    .optional(),
+  /** How it keeps for batch cooking. */
+  mealPrep: z
+    .object({
+      rating: z.enum(MEAL_PREP_RATINGS),
+      fridgeDays: z.number(),
+      roomDays: z.number().optional(),
+      freezerMonths: z.number(),
+      portion: z.string(),
+      freeze: z.string().optional(),
+      defrost: z.string().optional(),
+      reheat: z.array(z.object({ method: z.string(), from: z.enum(['chilled', 'frozen']), minutes: z.number().optional(), text: z.string() })),
+      serveFresh: z.array(z.string()).optional(),
+      tips: z.array(z.string()).optional(),
+    })
+    .optional(),
   /** A few plain words to search for a photo with. */
   photoQuery: z.string().optional(),
   /** Where the recipe was found, if it came from a web page. */
@@ -156,6 +181,8 @@ export function buildRecipe(draft: RecipeDraft, options: BuildOptions): Recipe |
     tips: draft.tips.map((t) => t.trim()).filter(Boolean),
     substitutions: [],
     ...(filled(draft.storage) ? { storage: draft.storage!.trim() } : {}),
+    ...nutritionOf(draft),
+    ...mealPrepOf(draft),
     cover: { hue: hashText(title) % 360, motif: motifFor(title, draft.course) },
     ...(options.image ? { image: options.image } : {}),
     ...(options.imageCredit ? { imageCredit: options.imageCredit } : {}),
@@ -165,6 +192,45 @@ export function buildRecipe(draft: RecipeDraft, options: BuildOptions): Recipe |
     ...(options.created ? { updated: now.toISOString().slice(0, 10) } : {}),
     source: 'mine',
   });
+}
+
+const whole = (n: number | undefined, max: number) => (n !== undefined && Number.isFinite(n) ? Math.min(max, Math.max(0, Math.round(n))) : 0);
+const amount = (n: number | undefined) => (n !== undefined && Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : undefined);
+
+function nutritionOf(draft: RecipeDraft): { nutrition?: Recipe['nutrition'] } {
+  const n = draft.nutrition;
+  if (!n || !Number.isFinite(n.kcal) || n.kcal <= 0) return {};
+  const nutrition: NonNullable<Recipe['nutrition']> = { kcal: Math.round(n.kcal) };
+  for (const key of ['protein', 'carbs', 'fat', 'fibre'] as const) {
+    const value = amount(n[key]);
+    if (value !== undefined) nutrition[key] = value;
+  }
+  return { nutrition };
+}
+
+/** Meal prep notes count once there is something to say about portioning. */
+function mealPrepOf(draft: RecipeDraft): { mealPrep?: Recipe['mealPrep'] } {
+  const m = draft.mealPrep;
+  if (!m || !filled(m.portion)) return {};
+  const freezerMonths = whole(m.freezerMonths, 12);
+  const reheat = m.reheat
+    .filter((r) => filled(r.text) && (freezerMonths > 0 || r.from === 'chilled'))
+    .map((r) => ({ method: r.method || 'microwave', from: r.from, text: r.text.trim(), ...(amount(r.minutes) ? { minutes: amount(r.minutes) } : {}) }));
+  const roomDays = whole(m.roomDays, 14);
+  return {
+    mealPrep: {
+      rating: m.rating,
+      fridgeDays: whole(m.fridgeDays, 14),
+      ...(roomDays > 0 ? { roomDays } : {}),
+      freezerMonths,
+      portion: m.portion.trim(),
+      ...(freezerMonths > 0 && filled(m.freeze) ? { freeze: m.freeze!.trim() } : {}),
+      ...(freezerMonths > 0 && filled(m.defrost) ? { defrost: m.defrost!.trim() } : {}),
+      reheat,
+      serveFresh: (m.serveFresh ?? []).map((s) => s.trim()).filter(Boolean),
+      tips: (m.tips ?? []).map((s) => s.trim()).filter(Boolean),
+    },
+  };
 }
 
 /** Open any recipe in the editor. */
@@ -185,6 +251,8 @@ export function draftFromRecipe(recipe: Recipe): RecipeDraft {
     equipment: recipe.equipment,
     tips: recipe.tips,
     ...(recipe.storage ? { storage: recipe.storage } : {}),
+    ...(recipe.nutrition ? { nutrition: { ...recipe.nutrition } } : {}),
+    ...(recipe.mealPrep ? { mealPrep: { ...recipe.mealPrep, reheat: recipe.mealPrep.reheat.map((r) => ({ ...r })) } } : {}),
     ...(recipe.sourceUrl ? { sourceUrl: recipe.sourceUrl } : {}),
   };
 }

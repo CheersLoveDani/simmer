@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link, useViewTransitionState } from 'react-router';
+import { freezes, isPrepFriendly } from '../domain/mealprep';
+import { formatKcal } from '../domain/nutrition';
 import { formatMinutes } from '../domain/quantity';
 import { label, type Recipe } from '../domain/schema';
 import { highlight } from '../domain/search';
@@ -39,6 +41,7 @@ export function RecipeCard({ recipe, terms, children, size = 'regular' }: CardPr
   const travelling = useViewTransitionState(href);
   const { look, style } = useRecipeLook(recipe);
   const favourite = useUser((s) => s.favourites.includes(recipe.id));
+  const showCalories = useUser((s) => s.settings.showCalories);
   return (
     <Link to={href} viewTransition className={`card card-${size} ${look ? 'is-themed' : ''}`} style={style} data-testid="recipe-card">
       <div className="card-cover">
@@ -56,6 +59,17 @@ export function RecipeCard({ recipe, terms, children, size = 'regular' }: CardPr
         <span>{formatMinutes(recipe.time.total)}</span>
         <span className="dot" aria-hidden="true" />
         <span>{label(recipe.difficulty)}</span>
+        {showCalories && recipe.nutrition && (
+          <>
+            <span className="dot" aria-hidden="true" />
+            <span className="tabular">{formatKcal(recipe.nutrition.kcal)}</span>
+          </>
+        )}
+        {isPrepFriendly(recipe) && (
+          <span className="card-prep" role="img" aria-label={freezes(recipe) ? 'Good for meal prep, freezes well' : 'Good for meal prep'} title={freezes(recipe) ? 'Good for meal prep, freezes well' : 'Good for meal prep'}>
+            <Icon name={freezes(recipe) ? 'snow' : 'layers'} size={14} />
+          </span>
+        )}
       </p>
       <ThemeBadge look={look} compact />
       {children}

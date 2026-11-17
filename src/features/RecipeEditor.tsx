@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { buildRecipe, slug, type DraftIngredient, type RecipeDraft } from '../domain/draft';
 import { formatIngredientLine, parseIngredientLine } from '../domain/ingredientLine';
-import { AISLES, COURSES, DIETS, DIFFICULTIES, label, type Recipe } from '../domain/schema';
+import { AISLES, COURSES, DIETS, DIFFICULTIES, MEAL_PREP_RATINGS, REHEAT_METHODS, label, type Recipe } from '../domain/schema';
+import { RATING_TEXT, methodLabel } from '../domain/mealprep';
 import { useLibrary } from '../store/libraryStore';
 import { toast, useRecipeImage } from '../ui/hooks';
 import { shrinkPhoto } from '../ui/photo';
@@ -464,6 +465,8 @@ function Extras({ draft, update }: Edit) {
       <Field label="Storage">
         <input type="text" value={draft.storage ?? ''} placeholder="Keeps for 3 days in the fridge." onChange={(event) => update({ storage: event.target.value })} />
       </Field>
+      <NutritionFields draft={draft} update={update} />
+      <MealPrepFields draft={draft} update={update} />
       <Field label="Tags" hint="Separate with commas, like “weeknight, cosy”.">
         <input type="text" value={draft.tags.join(', ')} onChange={(event) => update({ tags: event.target.value.split(',').map((t) => t.trimStart()) })} autoComplete="off" />
       </Field>
@@ -548,5 +551,128 @@ function PhotoStep({
         )}
       </div>
     </div>
+  );
+}
+
+const numberOrUndefined = (text: string) => (text.trim() === '' || !Number.isFinite(Number(text)) ? undefined : Number(text));
+
+function NutritionFields({ draft, update }: Edit) {
+  const n = draft.nutrition;
+  const set = (key: 'kcal' | 'protein' | 'carbs' | 'fat', text: string) => {
+    const value = numberOrUndefined(text);
+    const next = { kcal: n?.kcal ?? 0, ...n, [key]: value };
+    if (key === 'kcal' && value === undefined) next.kcal = 0;
+    // Clearing every box removes the estimate.
+    const empty = !next.kcal && next.protein === undefined && next.carbs === undefined && next.fat === undefined;
+    update({ nutrition: empty ? undefined : (next as RecipeDraft['nutrition']) });
+  };
+  return (
+    <fieldset className="field-row">
+      <legend className="field-label">Per serving, roughly</legend>
+      {(
+        [
+          ['kcal', 'Calories', 'kcal'],
+          ['protein', 'Protein', 'g'],
+          ['carbs', 'Carbs', 'g'],
+          ['fat', 'Fat', 'g'],
+        ] as const
+      ).map(([key, name, unit]) => (
+        <label key={key} className="field">
+          <span className="field-hint muted">
+            {name} ({unit})
+          </span>
+          <input type="number" inputMode="decimal" min={0} value={n?.[key] == null || (key === 'kcal' && !n.kcal) ? '' : String(n[key])} onChange={(event) => set(key, event.target.value)} />
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+const EMPTY_PREP: NonNullable<RecipeDraft['mealPrep']> = { rating: 'good', fridgeDays: 2, freezerMonths: 0, portion: '', reheat: [] };
+
+function MealPrepFields({ draft, update }: Edit) {
+  const [open, setOpen] = useState(draft.mealPrep !== undefined);
+  const m = draft.mealPrep ?? EMPTY_PREP;
+  const set = (patch: Partial<NonNullable<RecipeDraft['mealPrep']>>) => update({ mealPrep: { ...m, ...patch } });
+  if (!open) {
+    return (
+      <div className="field">
+        <span className="field-label">Meal prep</span>
+        <Button icon="plus" variant="plain" onClick={() => setOpen(true)}>
+          Add portioning, freezing and reheating notes
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <fieldset className="editor-group editor-prep">
+      <legend className="field-label">Meal prep</legend>
+      <Segmented
+        label="How well it keeps"
+        value={m.rating}
+        onChange={(rating) => set({ rating })}
+        options={MEAL_PREP_RATINGS.map((r) => ({ value: r, label: RATING_TEXT[r].title }))}
+      />
+      <div className="servings">
+        <span>Days in the fridge</span>
+        <Stepper label="Days in the fridge" value={m.fridgeDays} min={0} max={7} onChange={(fridgeDays) => set({ fridgeDays })} />
+      </div>
+      <div className="servings">
+        <span>Months in the freezer</span>
+        <Stepper label="Months in the freezer" value={m.freezerMonths} min={0} max={6} format={(v) => (v === 0 ? 'No' : String(v))} onChange={(freezerMonths) => set({ freezerMonths })} />
+      </div>
+      <Field label="Portioning" hint="How to divide and store it.">
+        <textarea rows={2} value={m.portion} placeholder="Divide between 4 lidded containers." onChange={(event) => set({ portion: event.target.value })} />
+      </Field>
+      {m.freezerMonths > 0 && (
+        <Field label="Freezing">
+          <textarea rows={2} value={m.freeze ?? ''} placeholder="Cool, lid, label and freeze within 2 hours." onChange={(event) => set({ freeze: event.target.value })} />
+        </Field>
+      )}
+      <div className="field">
+        <span className="field-label">Reheating</span>
+        <ul className="editor-reheat">
+          {m.reheat.map((r, i) => (
+            <li key={i} className="editor-reheat-row">
+              <select aria-label={`Reheat ${i + 1} method`} value={r.method} onChange={(event) => set({ reheat: m.reheat.map((x, j) => (j === i ? { ...x, method: event.target.value } : x)) })}>
+                {REHEAT_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {methodLabel(method)}
+                  </option>
+                ))}
+              </select>
+              <select aria-label={`Reheat ${i + 1} from`} value={r.from} onChange={(event) => set({ reheat: m.reheat.map((x, j) => (j === i ? { ...x, from: event.target.value as 'chilled' | 'frozen' } : x)) })}>
+                <option value="chilled">From the fridge</option>
+                {m.freezerMonths > 0 && <option value="frozen">From frozen</option>}
+              </select>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                aria-label={`Reheat ${i + 1} minutes`}
+                placeholder="min"
+                value={r.minutes ?? ''}
+                onChange={(event) => set({ reheat: m.reheat.map((x, j) => (j === i ? { ...x, minutes: numberOrUndefined(event.target.value) } : x)) })}
+              />
+              <textarea rows={2} aria-label={`Reheat ${i + 1} how`} value={r.text} placeholder="Cover and heat until steaming hot." onChange={(event) => set({ reheat: m.reheat.map((x, j) => (j === i ? { ...x, text: event.target.value } : x)) })} />
+              <IconButton icon="close" label={`Remove reheat ${i + 1}`} onClick={() => set({ reheat: m.reheat.filter((_, j) => j !== i) })} />
+            </li>
+          ))}
+        </ul>
+        <Button icon="plus" variant="plain" onClick={() => set({ reheat: [...m.reheat, { method: 'microwave', from: 'chilled', text: '' }] })}>
+          Add a way to reheat
+        </Button>
+      </div>
+      <Button
+        variant="plain"
+        icon="trash"
+        onClick={() => {
+          update({ mealPrep: undefined });
+          setOpen(false);
+        }}
+      >
+        Remove meal prep notes
+      </Button>
+    </fieldset>
   );
 }

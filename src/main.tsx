@@ -3,6 +3,7 @@ import '@fontsource-variable/fraunces/full.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/app.css';
+import './styles/mealprep.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

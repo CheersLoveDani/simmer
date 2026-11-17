@@ -6,6 +6,8 @@ import { CommandPalette } from './features/CommandPalette';
 import { CookMode } from './features/CookMode';
 import { Home } from './features/Home';
 import { Planner } from './features/Planner';
+import { Prepped } from './features/Prepped';
+import { useStashReminders } from './features/reminders';
 import { Recipe } from './features/Recipe';
 import { Saved } from './features/Saved';
 import { Search } from './features/Search';
@@ -146,6 +148,7 @@ function Root() {
   const dismissNotice = useLibrary((s) => s.dismissNotice);
   useTimerEngine();
   useAutoSync();
+  useStashReminders();
   useEffect(installBackNavigation, []);
 
   useEffect(() => {
@@ -289,6 +292,7 @@ const router = createHashRouter([
           { path: '/add', element: <AddRecipe /> },
           { path: '/add/new', element: <NewRecipe /> },
           { path: '/plan', element: <Planner /> },
+          { path: '/prep', element: <Prepped /> },
           { path: '/shopping', element: <Shopping /> },
           { path: '/saved', element: <Saved /> },
           { path: '/settings', element: <Settings /> },

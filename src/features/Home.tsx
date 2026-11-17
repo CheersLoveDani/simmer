@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { dailyPicks, facets, sortRecipes } from '../domain/browse';
+import { freshness, portionsIn, sortStash, useByLabel } from '../domain/mealprep';
 import { toISODate } from '../domain/planner';
 import { formatMinutes } from '../domain/quantity';
 import { COURSES, label } from '../domain/schema';
@@ -11,6 +12,7 @@ import { CardRow, RecipeArt, RecipeCard } from '../ui/RecipeCard';
 import { useWide } from '../ui/hooks';
 import { IconButton } from '../ui/primitives';
 import { useTimerSheet } from './timers';
+import { PLACE_ICONS } from './mealprep';
 
 function greeting(hour: number): { title: string; lead: string } {
   if (hour < 5) return { title: 'Still up?', lead: 'Something small and quick, perhaps.' };
@@ -25,6 +27,7 @@ export function Home() {
   const byId = useLibrary((s) => s.byId);
   const recent = useUser((s) => s.recent);
   const plan = useUser((s) => s.plan);
+  const stash = useUser((s) => s.stash);
   const wide = useWide();
   const openTimers = useTimerSheet((s) => s.setOpen);
   const now = new Date();
@@ -41,6 +44,11 @@ export function Home() {
     const extra = [...counts].filter(([c]) => !(COURSES as readonly string[]).includes(c)).map(([value, count]) => ({ value, count }));
     return [...known, ...extra];
   }, [recipes]);
+  const prepFriendly = useMemo(
+    () => recipes.filter((r) => r.mealPrep?.rating === 'great').sort((a, b) => a.title.localeCompare(b.title)),
+    [recipes],
+  );
+  const waiting = useMemo(() => sortStash(stash).slice(0, 3), [stash]);
   const recents = recent.map((id) => byId.get(id)).filter((r) => r !== undefined);
   const tonight = plan.filter((e) => e.date === today).map((e) => ({ entry: e, recipe: byId.get(e.recipeId) })).filter((x) => x.recipe);
 
@@ -87,6 +95,29 @@ export function Home() {
         </section>
       )}
 
+      {waiting.length > 0 && (
+        <section className="tonight ready" aria-labelledby="ready-title">
+          <div className="row-head">
+            <h2 id="ready-title">Ready to eat</h2>
+            <Link className="row-link" to="/prep">
+              {portionsIn(stash)} {portionsIn(stash) === 1 ? 'portion' : 'portions'} put away
+            </Link>
+          </div>
+          <ul>
+            {waiting.map((item) => (
+              <li key={item.id}>
+                <Link to="/prep" className="tonight-item">
+                  <Icon name={PLACE_ICONS[item.place]} size={20} />
+                  <span className="tonight-title">{item.title}</span>
+                  <span className={`fresh-text is-${freshness(item, today)}`}>{useByLabel(item, today)}</span>
+                  <Icon name="forward" size={18} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {pick && (
         <Link to={`/recipe/${pick.id}`} viewTransition className="feature" data-testid="todays-pick">
           <div className="feature-cover">
@@ -118,6 +149,14 @@ export function Home() {
       {quick.length > 0 && (
         <CardRow title="On the table in 30 minutes" action={<Link className="row-link" to="/search?time=30">See all</Link>}>
           {quick.map((r) => (
+            <RecipeCard key={r.id} recipe={r} size="small" />
+          ))}
+        </CardRow>
+      )}
+
+      {prepFriendly.length > 0 && (
+        <CardRow title="Great for meal prep" action={<Link className="row-link" to="/search?prep=1">See all</Link>}>
+          {prepFriendly.map((r) => (
             <RecipeCard key={r.id} recipe={r} size="small" />
           ))}
         </CardRow>

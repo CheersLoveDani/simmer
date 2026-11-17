@@ -186,3 +186,28 @@ export async function applyNativeTheme(choice: 'system' | 'light' | 'dark', dark
     // Cosmetic only.
   }
 }
+
+// ---- Companion apps --------------------------------------------------------
+
+/**
+ * Open an app link such as tend://food/add. There is no reliable way to know
+ * whether the other app is installed, so callers also offer a copy fallback.
+ */
+export async function openAppLink(url: string): Promise<boolean> {
+  try {
+    if (isTauri) {
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(url);
+      return true;
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.rel = 'noopener';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    return true;
+  } catch {
+    return false;
+  }
+}

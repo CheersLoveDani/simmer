@@ -1,4 +1,4 @@
-import { PASTA, expect, goTo, openRecipe, test } from './support';
+import { PASTA, expect, goTo, openRecipe, startCooking, test } from './support';
 
 test.describe('recipe', () => {
   test('scales ingredients with servings and remembers the choice', async ({ page }) => {
@@ -170,7 +170,7 @@ test.describe('cook mode', () => {
     await expect(prep).toContainText('Before you start');
     await expect(prep).toContainText('During step 1 (Spaghetti)');
 
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     const cook = page.getByTestId('cook-mode');
     await expect(cook.getByRole('group', { name: 'Before you start' })).toContainText('Finely grate the garlic.');
     await expect(cook.getByRole('group', { name: 'Meanwhile' })).toContainText('Thinly slice the spring onions.');
@@ -181,7 +181,7 @@ test.describe('cook mode', () => {
 
   test('walks through the method and logs the cook', async ({ page }) => {
     await openRecipe(page);
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     const cook = page.getByTestId('cook-mode');
     await expect(cook).toContainText('Step 1 of 5');
     await expect(cook.getByRole('list', { name: 'Ingredients for this step' })).toContainText('200 g spaghetti');
@@ -195,6 +195,7 @@ test.describe('cook mode', () => {
     await expect(cook).toContainText('Step 4 of 5');
     await cook.getByRole('button', { name: 'Next step' }).click();
     await cook.getByRole('button', { name: 'Finish' }).click();
+    await page.getByTestId('finish-cook').click();
 
     await expect(page.getByTestId('recipe-page')).toBeVisible();
     await expect(page.getByTestId('cooked-count')).toContainText('Cooked 1 time');
@@ -203,19 +204,19 @@ test.describe('cook mode', () => {
   test('uses the scaled quantities and resumes where you left off', async ({ page }) => {
     await openRecipe(page);
     await page.getByRole('region', { name: 'Ingredients' }).getByRole('button', { name: 'More servings' }).click();
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     const cook = page.getByTestId('cook-mode');
     await expect(cook).toContainText('300 g spaghetti');
     await cook.getByRole('button', { name: 'Next step' }).click();
     await cook.getByRole('button', { name: 'Leave cook mode' }).click();
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     await expect(cook).toContainText('Step 2 of 5');
   });
 
   test('responds to the arrow keys and Escape', async ({ page, wide }) => {
     test.skip(!wide, 'keyboard navigation is a desktop affordance');
     await openRecipe(page);
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     const cook = page.getByTestId('cook-mode');
     await page.keyboard.press('ArrowRight');
     await expect(cook).toContainText('Step 2 of 5');
@@ -228,7 +229,7 @@ test.describe('cook mode', () => {
   test('starts a timer from a step', async ({ page }) => {
     await page.clock.install();
     await openRecipe(page);
-    await page.getByRole('link', { name: 'Start cooking' }).click();
+    await startCooking(page);
     await page.getByTestId('cook-mode').getByRole('button', { name: 'Start 9 min timer' }).click();
     await expect(page.getByTestId('cook-mode').getByRole('button', { name: /Spaghetti timer/ })).toBeVisible();
   });

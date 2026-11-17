@@ -28,6 +28,17 @@ by step, plan the week, and let the recipe library keep itself up to date.
   system notification. They survive closing the app.
 - **Meal plan and shopping list.** Plan a week, send it to a list that merges
   duplicate ingredients and groups them by aisle.
+- **Meal prep.** Every recipe says how well it keeps, how to portion and
+  freeze it, and how to reheat it from the fridge or from frozen, with timers.
+  Before cooking, choose between eating now and a batch; cook mode ends by
+  packing the portions away. Simmer then tracks what is in your fridge and
+  freezer, with use-by dates, defrosting, container labels, reminders on the
+  day food should be eaten, and prepped meals you can drop into the plan
+  without shopping for them again.
+- **Calories.** An estimate per serving on every recipe, card and planned day,
+  with protein, carbs and fat. Turn on Tend in Settings to send what you eat to
+  [Tend](https://github.com/CheersLoveDani/tend)'s food log
+  (`tend://food/add`), where it opens filled in for you to confirm.
 - **Yours.** Favourites, collections, ratings, private notes and a cooking log,
   all stored on your device. Back up and restore as a file.
 - **Always current.** New and corrected recipes arrive on their own from the

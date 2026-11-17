@@ -63,6 +63,31 @@ const stepSchema = z.object({
   tip: z.string().optional(),
 });
 
+export const MEAL_PREP_RATINGS = ['great', 'good', 'fresh'] as const;
+export type MealPrepRating = (typeof MEAL_PREP_RATINGS)[number];
+export const REHEAT_METHODS = ['microwave', 'oven', 'hob', 'air-fryer', 'grill', 'toaster', 'none'] as const;
+
+const reheatSchema = z.object({
+  // New methods may appear within a major feed version, so this stays open.
+  method: z.string().min(1),
+  from: z.enum(['chilled', 'frozen']),
+  minutes: z.number().positive().optional().catch(undefined),
+  text: z.string().min(1),
+});
+
+const mealPrepSchema = z.object({
+  rating: z.enum(MEAL_PREP_RATINGS).catch('good'),
+  fridgeDays: z.number().int().min(0).max(14),
+  roomDays: z.number().int().positive().optional().catch(undefined),
+  freezerMonths: z.number().int().min(0).max(12),
+  portion: z.string().min(1),
+  freeze: z.string().optional(),
+  defrost: z.string().optional(),
+  reheat: z.array(reheatSchema).default([]),
+  serveFresh: z.array(z.string()).default([]),
+  tips: z.array(z.string()).default([]),
+});
+
 /** A link that is safe to open: feed content must never smuggle in another scheme. */
 const webUrl = z.string().refine((value) => {
   try {
@@ -142,6 +167,8 @@ export const recipeSchema = z.object({
       fibre: z.number().optional(),
     })
     .optional(),
+  /** How the dish keeps and reheats; a malformed block is dropped, not fatal. */
+  mealPrep: mealPrepSchema.optional().catch(undefined),
   cover: z.object({ hue: z.number().min(0).max(360), motif: z.string() }),
   image: z.string().optional(),
   /** The look this recipe borrows: a theme, and optionally one of its styles. */
@@ -167,6 +194,8 @@ export type Recipe = z.infer<typeof recipeSchema>;
 export type Ingredient = Recipe['ingredients'][number]['items'][number];
 export type Step = Recipe['steps'][number];
 export type Nutrition = NonNullable<Recipe['nutrition']>;
+export type MealPrep = NonNullable<Recipe['mealPrep']>;
+export type Reheat = MealPrep['reheat'][number];
 
 const fileRef = z.object({ id: z.string(), hash: z.string(), path: z.string() });
 
